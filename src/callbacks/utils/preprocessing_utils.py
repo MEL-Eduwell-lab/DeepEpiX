@@ -36,6 +36,19 @@ cache = Cache(
 # RAW DATA PREPROCESSING (FILTERING, SUBSAMPLING) #################################################################
 
 
+def get_notch_harmonics(notch_freq, sfreq):
+    """
+    Expand a base powerline notch frequency into its harmonics (2x, 3x),
+    e.g. 50 -> [50, 100, 150], keeping only harmonics below the Nyquist
+    frequency (sfreq / 2).
+    """
+    if not notch_freq:
+        return notch_freq
+    nyquist = sfreq / 2
+    harmonics = [h for h in (notch_freq, notch_freq * 2, notch_freq * 3) if h < nyquist]
+    return harmonics or None
+
+
 def sort_filter_resample(data_path, freq_data, channels_dict):
 
     raw = dpu.read_raw(data_path, preload=True, verbose=False)
@@ -301,7 +314,22 @@ def run_ica_processing(data_path, n_components,
         bad_channels=channel_store.get("bad", []),
     )
     modality = dpu.get_raw_modality(raw)
-    raw.pick_types(meg=modality in ("meg", "mixed"), eeg=modality in ("eeg", "mixed"))
+
+    # Restrict EEG picks to channels with a known scalp position (see
+    # chu.get_scalp_eeg_picks): fitting ICA on auxiliary channels (ECG, EMG,
+    # markers...) mislabeled as "eeg" degrades the decomposition, and without
+    # a montage, ica.plot_components() can't draw the component topographies.
+    meg_picks = (
+        mne.pick_types(raw.info, meg=True, eeg=False, stim=False, eog=False, ref_meg=False)
+        if modality in ("meg", "mixed")
+        else []
+    )
+    eeg_picks = chu.get_scalp_eeg_picks(raw.info) if modality in ("eeg", "mixed") else []
+    raw.pick([raw.ch_names[i] for i in list(meg_picks) + list(eeg_picks)])
+
+    if modality in ("eeg", "mixed"):
+        raw.set_montage(mne.channels.make_standard_montage("standard_1020"))
+
     raw.filter(l_freq=1.0, h_freq=None)
 
     ica = mne.preprocessing.ICA(
@@ -523,7 +551,7 @@ def compute_power_spectrum_decomposition(data_path, freq_data, theme="light"):
         return dash.no_update
 
     if notch_freq:
-        raw.notch_filter(freqs=notch_freq)
+        raw.notch_filter(freqs=get_notch_harmonics(notch_freq, raw.info["sfreq"]))
 
     psd_data = raw.compute_psd(
         method="welch",

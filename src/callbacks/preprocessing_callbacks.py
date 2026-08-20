@@ -130,7 +130,7 @@ def register_preprocess_meg_data():
                     "resample_freq": resample_freq,
                     "low_pass_freq": low_pass_freq,
                     "high_pass_freq": high_pass_freq,
-                    "notch_freq": notch_freq,
+                    "notch_freq": pu.get_notch_harmonics(notch_freq, raw.info["sfreq"]),
                 }
 
                 prep_raw = pu.sort_filter_resample(data_path, freq_data, channels_dict)
