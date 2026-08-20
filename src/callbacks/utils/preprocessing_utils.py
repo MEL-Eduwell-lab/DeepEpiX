@@ -20,6 +20,7 @@ from flask_caching import Cache
 import config
 from callbacks.utils import path_utils as dpu
 from callbacks.utils import cache_utils as cu
+from callbacks.utils import channel_utils as chu
 
 app = dash.get_app()
 
@@ -298,7 +299,9 @@ def run_ica_processing(data_path, n_components,
         preload=True,
         verbose=False,
         bad_channels=channel_store.get("bad", []),
-    ).pick_types(meg=True)
+    )
+    modality = dpu.get_raw_modality(raw)
+    raw.pick_types(meg=modality in ("meg", "mixed"), eeg=modality in ("eeg", "mixed"))
     raw.filter(l_freq=1.0, h_freq=None)
 
     ica = mne.preprocessing.ICA(
@@ -380,11 +383,15 @@ def get_ica_components_dask(
         return dd.read_parquet(cache_file) #type: ignore
 
     if raw is None:
-        raw = dpu.read_raw(data_path, preload=True, verbose=False).pick(["meg"])
+        raw = dpu.read_raw(data_path, preload=True, verbose=False)
+        modality = dpu.get_raw_modality(raw)
+        raw.pick(["meg", "eeg"] if modality == "mixed" else [modality])
         raw.filter(l_freq=1.0, h_freq=None)
+    else:
+        modality = dpu.get_raw_modality(raw)
 
     raw = raw.copy().crop(tmin=start_time, tmax=end_time)
-    raw.pick(["meg"])
+    raw.pick(["meg", "eeg"] if modality == "mixed" else [modality])
 
     ica = mne.preprocessing.read_ica(ica_result_path)
     sources = ica.get_sources(raw)
@@ -448,8 +455,9 @@ def get_reconstructed_signal_dask(
 
     Notes
     -----
-    The function currently apply ICA exclusion on MEG channels only and
-    leave others as there original values.
+    ICA exclusion is applied only to the channel type(s) the ICA was fit on
+    (MEG, EEG, or both for mixed recordings); other channels (stim, misc,
+    or the complementary modality) are left at their original values.
     """
     os.makedirs(cache_dir, exist_ok=True)
 
@@ -463,23 +471,27 @@ def get_reconstructed_signal_dask(
     
     raw_chunk = raw.copy().crop(tmin=start_time, tmax=end_time)
 
-    meg_picks = mne.pick_types(raw_chunk.info, meg=True, eeg=False, stim=False, exclude=[])
-    non_meg_picks = mne.pick_types(raw_chunk.info, meg=False, eeg=True, stim=True, misc=True, exclude=[])
+    modality = dpu.get_raw_modality(raw_chunk)
+    ica_meg = modality in ("meg", "mixed")
+    ica_eeg = modality in ("eeg", "mixed")
 
-    raw_meg = raw_chunk.copy().pick(picks=meg_picks)
-    if len(non_meg_picks) > 0:
-        raw_non_meg = raw_chunk.copy().pick(picks=non_meg_picks)
+    ica_picks = mne.pick_types(raw_chunk.info, meg=ica_meg, eeg=ica_eeg, stim=False, exclude=[])
+    other_picks = mne.pick_types(raw_chunk.info, meg=not ica_meg, eeg=not ica_eeg, stim=True, misc=True, exclude=[])
+
+    raw_ica_channels = raw_chunk.copy().pick(picks=ica_picks)
+    if len(other_picks) > 0:
+        raw_other_channels = raw_chunk.copy().pick(picks=other_picks)
     else:
-        raw_non_meg = None
+        raw_other_channels = None
 
     ica = mne.preprocessing.read_ica(ica_result_path)
     ica.exclude = list(excluded_components)
-    ica.apply(raw_meg)
+    ica.apply(raw_ica_channels)
 
-    if raw_non_meg is not None:
-        cleaned_raw = raw_meg.add_channels([raw_non_meg])
+    if raw_other_channels is not None:
+        cleaned_raw = raw_ica_channels.add_channels([raw_other_channels])
     else:
-        cleaned_raw = raw_meg
+        cleaned_raw = raw_ica_channels
 
     cleaned_df = cleaned_raw.to_data_frame(index="time")
     ddf = dd.from_pandas(cleaned_df, npartitions=10) #type: ignore
@@ -493,6 +505,15 @@ def get_reconstructed_signal_dask(
 
 def compute_power_spectrum_decomposition(data_path, freq_data, theme="light"):
     raw = dpu.read_raw(data_path, preload=True, verbose=False)
+    modality = dpu.get_raw_modality(raw)
+    meg_picks = (
+        mne.pick_types(raw.info, meg=True, eeg=False, stim=False, eog=False, ref_meg=False)
+        if modality in ("meg", "mixed")
+        else []
+    )
+    eeg_picks = chu.get_scalp_eeg_picks(raw.info) if modality in ("eeg", "mixed") else []
+
+    picks = [raw.ch_names[i] for i in list(meg_picks) + list(eeg_picks)]
 
     low_pass_freq = freq_data.get("low_pass_freq")
     high_pass_freq = freq_data.get("high_pass_freq")
@@ -509,7 +530,7 @@ def compute_power_spectrum_decomposition(data_path, freq_data, theme="light"):
         fmin=high_pass_freq,
         fmax=low_pass_freq,
         n_fft=2048,
-        picks="meg",
+        picks=picks,
         n_jobs=-1,
     )
     psd, freqs = psd_data.get_data(return_freqs=True)

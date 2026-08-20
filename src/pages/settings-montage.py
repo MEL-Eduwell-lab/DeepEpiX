@@ -11,6 +11,7 @@ import mne
 import matplotlib.pyplot as plt
 from layout.config_layout import REGION_COLOR_PALETTE, BOX_STYLES, FLEXDIRECTION
 from callbacks.utils import path_utils as dpu
+from callbacks.utils import channel_utils as chu
 
 dash.register_page(__name__, name="Settings", path="/settings/montage")
 
@@ -438,7 +439,7 @@ def update_checklist_method_container(style, channel_data):
                 dcc.Checklist(
                     id={"type": "montage-checklist", "group": group},
                     options=[{"label": ch, "value": ch} for ch in channels],
-                    value=[],
+                    value=channels if group == "EEG" else [],
                     style={"marginTop": "10px", "fontSize": "10px"},
                 ),
             ],
@@ -611,7 +612,15 @@ def update_meg_layout(
     raw = dpu.read_raw(data_path, preload=False, verbose=False)
 
     if modality == "eeg":
+        # Drop "eeg"-typed channels without a scalp position (e.g. ECG, EMG,
+        # markers mislabeled as "eeg" by the file reader) before set_montage,
+        # which otherwise raises on their missing position.
         montage = mne.channels.make_standard_montage("standard_1020")
+        eeg_picks = set(mne.pick_types(raw.info, meg=False, eeg=True))
+        scalp_picks = set(chu.get_scalp_eeg_picks(raw.info, montage=montage))
+        non_scalp = [raw.ch_names[i] for i in eeg_picks - scalp_picks]
+        if non_scalp:
+            raw.drop_channels(non_scalp)
         raw.set_montage(montage)
 
     info = raw.info

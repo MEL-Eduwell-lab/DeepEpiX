@@ -36,6 +36,40 @@ def get_grouped_channels_meg(grouped_channels, ch_names):
     return grouped_channels
 
 
+def get_scalp_eeg_picks(info, montage=None, exclude="bads"):
+    """
+    Return picks for "eeg"-typed channels that have a known position in a
+    standard scalp montage (default: standard_1020).
+
+    Acquisition systems and file readers (e.g. EDF, CTF) frequently label
+    auxiliary physiological channels (ECG, EMG, respiration belt, markers...)
+    as channel type "eeg" even though they are not part of the scalp
+    electrode layout. Restricting to channels present in the montage avoids
+    both crashing raw.set_montage() and contaminating EEG-only computations
+    (topomaps, PSD, ICA) with these non-scalp signals.
+    """
+    if montage is None:
+        montage = mne.channels.make_standard_montage("standard_1020")
+    montage_ch_names = set(montage.ch_names)
+    eeg_picks = mne.pick_types(
+        info, meg=False, eeg=True, stim=False, eog=False, exclude=exclude
+    )
+    return [i for i in eeg_picks if info["ch_names"][i] in montage_ch_names]
+
+
+def _split_eeg_channels_by_montage(info, ch_names):
+    """
+    Split EEG-typed channel names into "real" scalp electrodes (present in
+    the standard 10-20 montage) and the rest (auxiliary channels such as
+    ECG/EMG/markers that acquisition systems/readers often label as type
+    "eeg" too). Order within each list follows `ch_names`.
+    """
+    scalp_names = {info["ch_names"][i] for i in get_scalp_eeg_picks(info)}
+    montage_names = [ch for ch in ch_names if ch in scalp_names]
+    other_names = [ch for ch in ch_names if ch not in scalp_names]
+    return montage_names, other_names
+
+
 def get_grouped_channels_by_prefix(raw, modality, bad_channels=None):
     """
     Load channels from raw data and group them by their 3-letter prefix.
@@ -54,7 +88,11 @@ def get_grouped_channels_by_prefix(raw, modality, bad_channels=None):
     elif modality == "eeg":
         ch_picks = mne.pick_types(raw.info, meg=False, eeg=True, stim=False, eog=False)
         ch_names = [raw.info["ch_names"][i] for i in ch_picks]
-        grouped_channels["EEG"] = ch_names
+        montage_names, other_names = _split_eeg_channels_by_montage(raw.info, ch_names)
+        if montage_names:
+            grouped_channels["EEG"] = montage_names
+        if other_names:
+            grouped_channels["EEG (Other)"] = other_names
 
     elif modality == "mixed":
         # Get only MEG channels (both magnetometers and gradiometers)
@@ -64,7 +102,12 @@ def get_grouped_channels_by_prefix(raw, modality, bad_channels=None):
         eeg_ch_picks = mne.pick_types(
             raw.info, meg=False, eeg=True, stim=False, eog=False
         )
-        grouped_channels["EEG"] = [raw.info["ch_names"][i] for i in eeg_ch_picks]
+        eeg_ch_names = [raw.info["ch_names"][i] for i in eeg_ch_picks]
+        montage_names, other_names = _split_eeg_channels_by_montage(raw.info, eeg_ch_names)
+        if montage_names:
+            grouped_channels["EEG"] = montage_names
+        if other_names:
+            grouped_channels["EEG (Other)"] = other_names
 
     elif modality == "unkown":
         raise Exception(

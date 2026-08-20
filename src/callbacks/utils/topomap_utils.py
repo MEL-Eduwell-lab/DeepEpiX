@@ -4,6 +4,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 import mne
 
+from callbacks.utils import channel_utils as chu
+
 matplotlib.use("Agg")
 
 
@@ -80,11 +82,6 @@ def create_topomap_from_preprocessed(
     # Dask DFs are usually (n_times, n_channels), so we transpose
     data = preprocessed_df.values.T
 
-    # Create MNE RawArray using original metadata
-    if modality == "eeg":
-        montage = mne.channels.make_standard_montage("standard_1020")
-        original_raw.set_montage(montage)
-
     info = original_raw.info.copy()
 
     if bad_channels:
@@ -122,11 +119,19 @@ def create_topomap_from_preprocessed(
 
     picked_info = mne.pick_info(info, picks)
 
-    if modality == "meg" or "mixed":
+    if modality in ("meg", "mixed"):
         raw_processed = mne.io.RawArray(data, picked_info).pick("mag")
 
     elif modality == "eeg":
-        raw_processed = mne.io.RawArray(data, picked_info)
+        # Restrict to channels with a known position in the montage: auxiliary
+        # physiological channels (ECG, EMG...) are often typed "eeg" by file
+        # readers even though they aren't part of the scalp electrode layout,
+        # and set_montage() would otherwise raise on their missing position.
+        montage = mne.channels.make_standard_montage("standard_1020")
+        scalp_idx = chu.get_scalp_eeg_picks(picked_info, montage=montage)
+        scalp_info = mne.pick_info(picked_info, scalp_idx)
+        scalp_info.set_montage(montage)
+        raw_processed = mne.io.RawArray(data[scalp_idx], scalp_info)
 
     # Use your existing topomap function
     return create_topomap_from_raw(raw_processed, sfreq, t0, t)

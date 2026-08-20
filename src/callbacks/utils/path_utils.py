@@ -8,6 +8,18 @@ from dash import html
 import dash_bootstrap_components as dbc
 import config
 
+# Single-file M/EEG formats recognized by the app, mapped to their MNE reader.
+# ".ds" (CTF) is a folder but is keyed by suffix like the others; BTi/4D is
+# handled separately in read_raw() since it is a folder without a fixed suffix.
+RAW_READERS = {
+    ".ds": mne.io.read_raw_ctf,
+    ".fif": mne.io.read_raw_fif,
+    ".edf": mne.io.read_raw_edf,
+    ".bdf": mne.io.read_raw_bdf,
+    ".vhdr": mne.io.read_raw_brainvision,
+    ".set": mne.io.read_raw_eeglab,
+}
+
 
 def get_data_path_options(data_dir=Path(config.DATA_DIR)):
     all_data = get_valid_paths(str(data_dir))  # recursive search
@@ -31,21 +43,21 @@ def browse_folder():
 def test_valid_path(path: str) -> bool:
     """
     Recursively check if a directory tree contains a valid MEG/EEG dataset:
-    - Any file ending with .ds or .fif
+    - Any file with a recognized M/EEG suffix (see RAW_READERS)
     - Any folder containing an 'hs_file'
     """
     p = Path(path)
 
     # Direct match
-    if p.suffix in {".ds", ".fif"}:
+    if p.suffix in RAW_READERS:
         return True
     if p.is_dir() and (p / "hs_file").exists():
         return True
 
     # Recursive search
     for root, dirs, files in os.walk(p):
-        # Check for .ds or .fif files
-        if any(f.endswith((".ds", ".fif")) for f in files):
+        # Check for recognized M/EEG files
+        if any(Path(f).suffix in RAW_READERS for f in files):
             return True
         # Check if any subfolder contains hs_file
         for d in dirs:
@@ -67,14 +79,14 @@ def get_valid_paths(path) -> list:
     """
     Recursively collect all valid dataset paths under a directory:
     - Folders ending with .ds (do not recurse inside)
-    - Files ending with .fif
+    - Files with a recognized M/EEG suffix (see RAW_READERS)
     - Folders containing 'hs_file'
     Returns a list of Path objects.
     """
     path = Path(path)
     valid_paths = []
 
-    if path.is_file() and path.suffix == ".fif":
+    if path.is_file() and path.suffix in RAW_READERS:
         valid_paths.append(path)
         return valid_paths
 
@@ -120,12 +132,10 @@ def get_raw_modality(raw):
 
 def read_raw(data_path, preload, verbose, bad_channels=None):
     data_path = Path(data_path)
+    reader = RAW_READERS.get(data_path.suffix)
 
-    if data_path.suffix == ".ds":
-        raw = mne.io.read_raw_ctf(str(data_path), preload=preload, verbose=verbose)
-
-    elif data_path.suffix == ".fif":
-        raw = mne.io.read_raw_fif(str(data_path), preload=preload, verbose=verbose)
+    if reader is not None:
+        raw = reader(str(data_path), preload=preload, verbose=verbose)
 
     elif data_path.is_dir():
         # Assume BTi/4D format: folder must contain 3 specific files

@@ -9,6 +9,15 @@ import pandas as pd
 
 from typing import Tuple
 
+RAW_READERS = {
+    ".ds": mne.io.read_raw_ctf,
+    ".fif": mne.io.read_raw_fif,
+    ".edf": mne.io.read_raw_edf,
+    ".bdf": mne.io.read_raw_bdf,
+    ".vhdr": mne.io.read_raw_brainvision,
+    ".set": mne.io.read_raw_eeglab,
+}
+
 
 # read and write pickle files
 def save_obj(obj, name, path):
@@ -37,12 +46,10 @@ def standardize(X, mean=None, std=None):
 # read raw from different acquisition systems
 def read_raw(data_path, preload, verbose, bad_channels=None):
     data_path = Path(data_path)
+    reader = RAW_READERS.get(data_path.suffix)
 
-    if data_path.suffix == ".ds":
-        raw = mne.io.read_raw_ctf(str(data_path), preload=preload, verbose=verbose)
-
-    elif data_path.suffix == ".fif":
-        raw = mne.io.read_raw_fif(str(data_path), preload=preload, verbose=verbose)
+    if reader is not None:
+        raw = reader(str(data_path), preload=preload, verbose=verbose)
 
     elif data_path.is_dir():
         # Assume BTi/4D format: folder must contain 3 specific files
@@ -68,7 +75,7 @@ def read_raw(data_path, preload, verbose, bad_channels=None):
         )
 
     else:
-        raise ValueError("Unrecognized file or folder type for MEG data.")
+        raise ValueError("Unrecognized file or folder type for M/EEG data.")
 
     if bad_channels:
         raw.drop_channels(bad_channels)
