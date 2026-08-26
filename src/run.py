@@ -27,6 +27,7 @@ app.layout = html.Div(
         dcc.Store(id="frequency-store", storage_type="session"),
         dcc.Store(id="annotation-store", data=[], storage_type="session"),
         dcc.Store(id="channel-store", data={}, storage_type="session"),
+        dcc.Store(id="display-channel-store", data={}, storage_type="session"),
         dcc.Store(id="montage-store", data={}, storage_type="local"),
         dcc.Store(id="history-store", data={}, storage_type="session"),
         dcc.Store(id="model-probabilities-store", data={}, storage_type="session"),

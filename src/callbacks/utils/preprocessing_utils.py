@@ -49,6 +49,21 @@ def get_notch_harmonics(notch_freq, sfreq):
     return harmonics or None
 
 
+def get_original_signal_freq_data(freq_data):
+    """
+    Variant of freq_data for computations that must run on the original
+    scalp channel space -- ICA fitting/application and topomaps -- rather
+    than the bipolar montage used for display. Bipolar re-referencing
+    replaces scalp channels with derived anode-cathode pairs, which have no
+    direct correspondence to electrode positions or to an ICA fit on the
+    original channels. "average" reference is left untouched since it
+    doesn't change channel identity.
+    """
+    if freq_data.get("reference") == "bipolar_tcp_ar":
+        return {**freq_data, "reference": "none"}
+    return freq_data
+
+
 def sort_filter_resample(data_path, freq_data, channels_dict):
 
     raw = dpu.read_raw(data_path, preload=True, verbose=False)
@@ -66,6 +81,8 @@ def sort_filter_resample(data_path, freq_data, channels_dict):
         scalp_names = [raw.ch_names[i] for i in chu.get_scalp_eeg_picks(raw.info)]
         if scalp_names:
             raw.set_eeg_reference(ref_channels=scalp_names)
+    elif reference == "bipolar_tcp_ar":
+        raw = chu.apply_bipolar_montage(raw)
 
     # Apply filtering and resampling
     raw.filter(l_freq=high_pass_freq, h_freq=low_pass_freq, n_jobs=-1)
@@ -478,7 +495,9 @@ def get_reconstructed_signal_dask(
     excluded_components : list of int
         Indices of ICA components to be removed (e.g., artifacts).
     raw : mne.io.Raw or None
-        An existing MNE Raw object. If None, data is loaded from `data_path`.
+        An existing MNE Raw object in the original scalp channel space
+        (matching what ICA was fit on -- see run_ica_processing). If None,
+        data is loaded from `data_path`.
     cache_dir : str, optional
         Directory to store the resulting Parquet files.
 
@@ -526,6 +545,14 @@ def get_reconstructed_signal_dask(
         cleaned_raw = raw_ica_channels.add_channels([raw_other_channels])
     else:
         cleaned_raw = raw_ica_channels
+
+    # `raw` (and therefore `cleaned_raw`) is in the original scalp channel
+    # space, since ICA is always fit/applied there (see run_ica_processing).
+    # Re-derive the bipolar montage on the cleaned signal so the display
+    # (which shows bipolar channels when that reference is selected)
+    # reflects the ICA cleaning.
+    if freq_data.get("reference") == "bipolar_tcp_ar":
+        cleaned_raw = chu.apply_bipolar_montage(cleaned_raw)
 
     cleaned_df = cleaned_raw.to_data_frame(index="time")
     ddf = dd.from_pandas(cleaned_df, npartitions=10) #type: ignore

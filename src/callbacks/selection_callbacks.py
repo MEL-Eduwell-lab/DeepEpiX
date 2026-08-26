@@ -96,7 +96,7 @@ def register_update_channels_checklist_options(checkboxes_id):
     @callback(
         Output(checkboxes_id, "options"),
         Output(checkboxes_id, "value"),
-        Input("channel-store", "data"),
+        Input("display-channel-store", "data"),
         prevent_initial_call=False,
     )
     def update_checklist_options(channel_data):
@@ -119,7 +119,7 @@ def register_manage_channels_checklist(checkboxes_id):
             Input("check-all-channels-btn", "n_clicks"),
             Input("clear-all-channels-btn", "n_clicks"),
         ],
-        State("channel-store", "data"),
+        State("display-channel-store", "data"),
         prevent_initial_call=True,
     )
     def manage_checklist(check_all_clicks, clear_all_clicks, channel_store):

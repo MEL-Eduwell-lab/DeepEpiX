@@ -24,6 +24,7 @@ def register_update_graph_raw_signal():
         State("frequency-store", "data"),
         State("montage-store", "data"),
         State("channel-store", "data"),
+        State("display-channel-store", "data"),
         State("sensitivity-analysis-store", "data"),
         State("history-store", "data"),
         State("signal-version-radio", "value"),
@@ -43,6 +44,7 @@ def register_update_graph_raw_signal():
         freq_data,
         montage_store,
         channel_store,
+        display_channel_store,
         sensitivity_analysis_store,
         history_data,
         signal_version,
@@ -83,13 +85,14 @@ def register_update_graph_raw_signal():
                 ERROR,
             )
 
-        # Get the selected channels based on region
+        # Get the selected channels based on region (display-space: reflects
+        # the actual channels shown, e.g. bipolar-derived ones)
         if montage_selection == "channel selection":
             selected_channels = [
                 channel
                 for region_code in channel_selection
-                if region_code in channel_store
-                for channel in channel_store[region_code]
+                if region_code in display_channel_store
+                for channel in display_channel_store[region_code]
             ]
 
             if not selected_channels:
@@ -143,6 +146,7 @@ def register_update_graph_raw_signal():
                 color_selection,
                 xaxis_range,
                 channel_store,
+                display_channel_store,
                 filter,
                 excluded_ica_components=excluded_ica,
             )

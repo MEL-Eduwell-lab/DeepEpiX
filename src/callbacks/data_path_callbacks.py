@@ -96,6 +96,7 @@ def register_store_data_path_and_clear_data():
         Output("frequency-store", "clear_data"),
         Output("annotation-store", "clear_data"),
         Output("channel-store", "clear_data"),
+        Output("display-channel-store", "clear_data"),
         Output("model-probabilities-store", "clear_data"),
         Output("sensitivity-analysis-store", "clear_data"),
         Output("raw-modality", "clear_data"),
@@ -119,11 +120,13 @@ def register_store_data_path_and_clear_data():
                 dash.no_update,
                 dash.no_update,
                 dash.no_update,
+                dash.no_update,
             )
         return (
             {"display": "flex", **FLEXDIRECTION["row-flex"]},
             False,
             data_path,
+            True,
             True,
             True,
             True,

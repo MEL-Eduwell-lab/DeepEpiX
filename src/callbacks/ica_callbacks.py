@@ -219,7 +219,12 @@ def register_apply_ica_exclusion():
         already_excluded = set(ica_entry.get("excluded_components", []))
         all_excluded = sorted(already_excluded | set(selected))
 
-        prep_raw = pu.sort_filter_resample(data_path, freq_data, channel_store)
+        # ICA is fit/applied on the original scalp channels (see
+        # run_ica_processing), so build `prep_raw` the same way here,
+        # regardless of the bipolar display montage; get_reconstructed_signal_dask
+        # re-derives the bipolar montage on the cleaned signal when needed.
+        scalp_freq_data = pu.get_original_signal_freq_data(freq_data)
+        prep_raw = pu.sort_filter_resample(data_path, scalp_freq_data, channel_store)
         for start_time, end_time in chunk_limits:
 
             pu.get_reconstructed_signal_dask(

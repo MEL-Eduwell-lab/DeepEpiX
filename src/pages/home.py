@@ -308,6 +308,10 @@ layout = html.Div(
                                     options=[
                                         {"label": "None", "value": "none"},
                                         {"label": "Average", "value": "average"},
+                                        {
+                                            "label": "Bipolar (TCP-AR)",
+                                            "value": "bipolar_tcp_ar",
+                                        },
                                     ],
                                     value="none",
                                     clearable=False,
@@ -316,6 +320,9 @@ layout = html.Div(
                                 ),
                                 dbc.Tooltip(
                                     "Re-reference EEG channels before filtering. "
+                                    "Bipolar applies the standard temporal "
+                                    "'double banana' montage; pairs whose electrodes "
+                                    "are missing from the recording are skipped. "
                                     "Disabled for MEG recordings, which don't need "
                                     "re-referencing.",
                                     target="eeg-reference",

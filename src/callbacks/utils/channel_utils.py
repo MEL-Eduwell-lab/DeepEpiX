@@ -6,6 +6,66 @@ from pathlib import Path
 import json
 
 
+# Standard bipolar "double banana" montage used in clinical EEG review,
+# grouped by chain. Each entry is (derived_channel_name, anode, cathode);
+# the derived channel's signal is anode - cathode.
+TCP_AR_BIPOLAR_MONTAGE = {
+    "Left Temporal": [
+        ("Fp1-F7", "Fp1", "F7"),
+        ("F7-T3", "F7", "T3"),
+        ("T3-T5", "T3", "T5"),
+        ("T5-O1", "T5", "O1"),
+    ],
+    "Right Temporal": [
+        ("Fp2-F8", "Fp2", "F8"),
+        ("F8-T4", "F8", "T4"),
+        ("T4-T6", "T4", "T6"),
+        ("T6-O2", "T6", "O2"),
+    ],
+    "Central": [
+        ("Fz-Cz", "Fz", "Cz"),
+        ("Cz-Pz", "Cz", "Pz"),
+    ],
+    "Left Parasagittal": [
+        ("Fp1-F3", "Fp1", "F3"),
+        ("F3-C3", "F3", "C3"),
+        ("C3-P3", "C3", "P3"),
+        ("P3-O1", "P3", "O1"),
+    ],
+    "Right Parasagittal": [
+        ("Fp2-F4", "Fp2", "F4"),
+        ("F4-C4", "F4", "C4"),
+        ("C4-P4", "C4", "P4"),
+        ("P4-O2", "P4", "O2"),
+    ],
+}
+
+
+def apply_bipolar_montage(raw, montage=TCP_AR_BIPOLAR_MONTAGE):
+    """
+    Re-reference EEG data to a predefined bipolar montage (anode - cathode
+    pairs), replacing the original channels with the derived ones.
+
+    Pairs whose anode or cathode channel is not present in `raw` are
+    skipped rather than raising, so a partial montage (e.g. missing mastoid
+    electrodes) still yields the chains that can be computed.
+    """
+    available = set(raw.ch_names)
+    pairs = [
+        (name, anode, cathode)
+        for chain_pairs in montage.values()
+        for name, anode, cathode in chain_pairs
+        if anode in available and cathode in available
+    ]
+    if not pairs:
+        return raw
+
+    names, anodes, cathodes = zip(*pairs)
+    return mne.set_bipolar_reference(
+        raw, anode=list(anodes), cathode=list(cathodes), ch_name=list(names)
+    )
+
+
 def get_grouped_channels_meg(grouped_channels, ch_names):
     prefix_pattern = re.compile(r"^[A-Z]{3}$")
 
@@ -92,7 +152,7 @@ def get_grouped_channels_by_prefix(raw, modality, bad_channels=None):
         if montage_names:
             grouped_channels["EEG"] = montage_names
         if other_names:
-            grouped_channels["EEG (Other)"] = other_names
+            grouped_channels["Non 10-20 EEG"] = other_names
 
     elif modality == "mixed":
         # Get only MEG channels (both magnetometers and gradiometers)
@@ -107,7 +167,7 @@ def get_grouped_channels_by_prefix(raw, modality, bad_channels=None):
         if montage_names:
             grouped_channels["EEG"] = montage_names
         if other_names:
-            grouped_channels["EEG (Other)"] = other_names
+            grouped_channels["Non 10-20 EEG"] = other_names
 
     elif modality == "unkown":
         raise Exception(
@@ -122,5 +182,37 @@ def get_grouped_channels_by_prefix(raw, modality, bad_channels=None):
         else:
             bad_channels_list = list(bad_channels)
         grouped_channels["bad"] = bad_channels_list
+
+    return grouped_channels
+
+
+def get_post_reference_channel_groups(prep_raw, modality, reference, bad_channels=None):
+    """
+    Build the channel-selection groups for the raw-signal-viewer UI, matching
+    the ACTUAL channels of `prep_raw` after preprocessing/re-referencing.
+
+    For "none" or "average" reference, channel identity is unchanged, so
+    this matches the scalp-space groups used for preprocessing/reordering.
+    For the bipolar montage, derived channels (e.g. "Fp1-F7") replace scalp
+    electrodes; since they don't match any standard_1020 name, they would
+    otherwise be lumped into "Non 10-20 EEG" -- group them by montage chain
+    (e.g. "Left Temporal") instead, matching TCP_AR_BIPOLAR_MONTAGE.
+    """
+    grouped_channels = get_grouped_channels_by_prefix(
+        prep_raw, modality, bad_channels=bad_channels
+    )
+    if reference != "bipolar_tcp_ar":
+        return grouped_channels
+
+    remaining_other = grouped_channels.pop("Non 10-20 EEG", [])
+    for chain_name, chain_pairs in TCP_AR_BIPOLAR_MONTAGE.items():
+        chain_ch_names = {name for name, _, _ in chain_pairs}
+        chain_channels = [ch for ch in remaining_other if ch in chain_ch_names]
+        if chain_channels:
+            grouped_channels[chain_name] = chain_channels
+            remaining_other = [ch for ch in remaining_other if ch not in chain_ch_names]
+
+    if remaining_other:
+        grouped_channels["Non 10-20 EEG"] = remaining_other
 
     return grouped_channels

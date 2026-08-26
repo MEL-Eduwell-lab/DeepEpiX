@@ -59,6 +59,7 @@ def register_preprocess_meg_data():
         Output("frequency-store", "data"),
         Output("annotation-store", "data"),
         Output("channel-store", "data", allow_duplicate=True),
+        Output("display-channel-store", "data"),
         Output("raw-modality", "data"),
         Output("chunk-limits-store", "data"),
         Output("url", "pathname"),
@@ -120,7 +121,7 @@ def register_preprocess_meg_data():
             Updated states for Dash components including status messages, 
             frequency settings, annotations, and navigation path.
         """
-        NO_UPDATE = (dash.no_update,) * 11
+        NO_UPDATE = (dash.no_update,) * 12
 
         if n_clicks > 0:
             try:
@@ -172,18 +173,23 @@ def register_preprocess_meg_data():
                 cache_file = pu.get_cache_filename(data_path, freq_data)
                 pu.save_mne_sidecar(cache_file, prep_raw)
 
+                display_channels_dict = chu.get_post_reference_channel_groups(
+                    prep_raw, modality, eeg_reference, bad_channels=all_bad_channels
+                )
+
                 return (
                     "Preprocessed and saved data",
                     freq_data,
                     annotations_dict,
                     channels_dict,
+                    display_channels_dict,
                     modality,
                     chunk_limits,
                     "/viz/raw-signal",
                     [],
-                    [],                              
+                    [],
                     None,
-                    {}                           
+                    {}
                 )
 
             except Exception as e:
