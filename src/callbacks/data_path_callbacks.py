@@ -5,6 +5,7 @@ from pathlib import Path
 
 # Local Imports
 from callbacks.utils import path_utils as dpu
+from callbacks.utils import channel_utils as chu
 from layout.config_layout import FLEXDIRECTION
 
 
@@ -45,6 +46,7 @@ def register_handle_valid_data_path():
         Output("preprocess-display-button", "disabled", allow_duplicate=True),
         Output("frequency-container", "style"),
         Output("data-path-warning", "children", allow_duplicate=True),
+        Output("pending-has-scalp-eeg", "data"),
         Input("data-path-dropdown", "value"),
         prevent_initial_call=True,
     )
@@ -58,20 +60,31 @@ def register_handle_valid_data_path():
                     {"display": "none"},
                     "Path must end with '.ds', '.fif', '.edf', '.bdf', '.vhdr', '.set', "
                     "or contain 3 files for 4D neuroimaging to be a valid raw M/EEG object.",
+                    False,
                 )
 
             try:
-                dpu.read_raw(data_path, preload=False, verbose=False)
+                raw = dpu.read_raw(data_path, preload=False, verbose=False)
+                has_scalp_eeg = bool(chu.get_scalp_eeg_picks(raw.info))
                 return (
                     False,
                     True,
                     {"display": "none"},
                     "",
+                    has_scalp_eeg,
                 )  # Valid: enable button and clear warning
             except Exception as e:
-                return True, True, {"display": "none"}, f"Invalid M/EEG path: {str(e)}"
+                return (
+                    True,
+                    True,
+                    {"display": "none"},
+                    f"Invalid M/EEG path: {str(e)}",
+                    False,
+                )
 
-        return True, True, {"display": "none"}, "Please select a path."
+        # No path selected yet (including on initial page load): stay quiet,
+        # the disabled Load button already makes the next step clear.
+        return True, True, {"display": "none"}, "", False
 
 
 def register_store_data_path_and_clear_data():

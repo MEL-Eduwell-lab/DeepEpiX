@@ -34,6 +34,25 @@ def register_handle_frequency_parameters():
         return dash.no_update
 
 
+def register_toggle_eeg_reference():
+    @callback(
+        Output("eeg-reference", "disabled"),
+        Output("eeg-reference", "value"),
+        Input("pending-has-scalp-eeg", "data"),
+        prevent_initial_call=True,
+    )
+    def toggle_eeg_reference(has_scalp_eeg):
+        """
+        Enable EEG re-referencing only when the recording has real 10-20
+        scalp electrodes (see chu.get_scalp_eeg_picks) -- not just any
+        "eeg"-typed channel, since a MEG recording with a few auxiliary
+        channels (ECG, EOG...) mislabeled as "eeg" shouldn't count.
+        """
+        if has_scalp_eeg:
+            return False, dash.no_update
+        return True, "none"
+
+
 def register_preprocess_meg_data():
     @callback(
         Output("preprocess-status", "children", allow_duplicate=True),
@@ -53,6 +72,7 @@ def register_preprocess_meg_data():
         State("high-pass-freq", "value"),
         State("low-pass-freq", "value"),
         State("notch-freq", "value"),
+        State("eeg-reference", "value"),
         State("heartbeat-channel", "value"),
         State("bad-channels", "value"),
         running=[(Output("compute-display-psd-button", "disabled"), True, False)],
@@ -65,6 +85,7 @@ def register_preprocess_meg_data():
         high_pass_freq,
         low_pass_freq,
         notch_freq,
+        eeg_reference,
         heartbeat_ch_name,
         bad_channels,
     ):
@@ -86,6 +107,8 @@ def register_preprocess_meg_data():
             Upper bound of the bandpass filter in Hz.
         notch_freq : float
             Frequency to be removed by the notch filter (e.g., 50 or 60 Hz).
+        eeg_reference : {"none", "average"}
+            EEG re-referencing scheme to apply. Ignored for MEG recordings.
         heartbeat_ch_name : str
             Name of the ECG/heartbeat channel for artifact detection.
         bad_channels : list of str
@@ -131,6 +154,7 @@ def register_preprocess_meg_data():
                     "low_pass_freq": low_pass_freq,
                     "high_pass_freq": high_pass_freq,
                     "notch_freq": pu.get_notch_harmonics(notch_freq, raw.info["sfreq"]),
+                    "reference": eeg_reference,
                 }
 
                 prep_raw = pu.sort_filter_resample(data_path, freq_data, channels_dict)

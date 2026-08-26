@@ -19,6 +19,7 @@ from callbacks.data_path_callbacks import (
 )
 from callbacks.preprocessing_callbacks import (
     register_handle_frequency_parameters,
+    register_toggle_eeg_reference,
     register_preprocess_meg_data,
 )
 from callbacks.psd_callbacks import register_display_psd
@@ -298,6 +299,30 @@ layout = html.Div(
                                     style=INPUT_STYLES["number-in-box"],
                                 ),
                             ],
+                        ),
+                        html.Div(
+                            [
+                                html.Label("EEG Reference: "),
+                                dcc.Dropdown(
+                                    id="eeg-reference",
+                                    options=[
+                                        {"label": "None", "value": "none"},
+                                        {"label": "Average", "value": "average"},
+                                    ],
+                                    value="none",
+                                    clearable=False,
+                                    disabled=True,
+                                    style={"width": "200px"},
+                                ),
+                                dbc.Tooltip(
+                                    "Re-reference EEG channels before filtering. "
+                                    "Disabled for MEG recordings, which don't need "
+                                    "re-referencing.",
+                                    target="eeg-reference",
+                                    placement="right",
+                                    class_name="custom-tooltip",
+                                ),
+                            ],
                             style={"marginBottom": "20px"},
                         ),
                         html.H6(
@@ -459,6 +484,8 @@ register_store_data_path_and_clear_data()
 register_populate_tab_contents()
 
 register_handle_frequency_parameters()
+
+register_toggle_eeg_reference()
 
 register_display_psd()
 

@@ -60,6 +60,12 @@ def sort_filter_resample(data_path, freq_data, channels_dict):
     low_pass_freq = freq_data.get("low_pass_freq")
     high_pass_freq = freq_data.get("high_pass_freq")
     notch_freq = freq_data.get("notch_freq")
+    reference = freq_data.get("reference")
+
+    if reference == "average":
+        scalp_names = [raw.ch_names[i] for i in chu.get_scalp_eeg_picks(raw.info)]
+        if scalp_names:
+            raw.set_eeg_reference(ref_channels=scalp_names)
 
     # Apply filtering and resampling
     raw.filter(l_freq=high_pass_freq, h_freq=low_pass_freq, n_jobs=-1)

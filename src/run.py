@@ -33,6 +33,7 @@ app.layout = html.Div(
         dcc.Store(id="sensitivity-analysis-store", data={}, storage_type="session"),
         dcc.Store(id="ica-store", data=[], storage_type="session"),
         dcc.Store(id="raw-modality", storage_type="session"),
+        dcc.Store(id="pending-has-scalp-eeg", storage_type="session"),
         dcc.Store(id="ica-components-dir-store", storage_type="session"),
         dcc.Store(id="model-csv-store", data={}, storage_type="session"),
         html.Div(
