@@ -81,6 +81,27 @@ def register_fill_signal_versions_predict():
             })
         return options 
 
+def register_fill_model_options():
+    @callback(
+        Output("model-dropdown", "options"),
+        Output("model-dropdown", "value"),
+        Input("raw-modality", "data"),
+        Input("url", "pathname"),
+        State("model-dropdown", "value"),
+        prevent_initial_call=False,
+    )
+    def _fill_model_options(modality, url, current_value):
+        """Restrict the model list to those adapted to the recording modality.
+
+        Models live in per-modality sub-folders (``models/MEG`` and
+        ``models/EEG``); only the ones matching ``raw-modality`` are proposed.
+        """
+        options = pru.get_model_options(modality)
+        valid_values = {opt["value"] for opt in options}
+        value = current_value if current_value in valid_values else None
+        return options, value
+
+
 def register_execute_predict_script():
     @callback(
         Output("prediction-status", "children"),

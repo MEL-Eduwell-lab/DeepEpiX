@@ -32,5 +32,13 @@
         "highpass": 0.5,
         "lowpass": 50.0,
         "notch": "None"
+    },
+
+    "uiednet.ckpt":{
+        "sfreq": 256,
+        "highpass": 0.5,
+        "lowpass": 80.0,
+        "notch": 50.0,
+        "montage_type": "referential"
     }
 }

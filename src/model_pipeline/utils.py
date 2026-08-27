@@ -1,3 +1,5 @@
+import os
+import yaml
 import os.path as op
 from pathlib import Path
 import pickle
@@ -6,8 +8,11 @@ from scipy.ndimage import gaussian_filter1d
 import mne
 import json
 import pandas as pd
+import logging
+import traceback
+from typing import Any
 
-from typing import Tuple
+logger = logging.getLogger(__name__)
 
 RAW_READERS = {
     ".ds": mne.io.read_raw_ctf,
@@ -82,7 +87,7 @@ def read_raw(data_path, preload, verbose, bad_channels=None):
 
     return raw
 
-def load_raw_from_parquet(parquet_path: str, json_path: str) -> Tuple[mne.io.RawArray, dict]:
+def load_raw_from_parquet(parquet_path: str, json_path: str) -> tuple[mne.io.RawArray, dict]:
     """
     Reconstruct an MNE RawArray using .parquet & .jsons files.
 
@@ -246,3 +251,105 @@ def find_peak_gfp(gfp, times, smoothing_sigma=2, percentile=90):
         return times[peak_indices[0]]  # First peak above threshold
     else:
         return times[np.argmax(gfp_smooth)]  # Default to max if no peak found
+
+def load_config(config_path: str | Path) -> dict[str, Any]:
+    """Load configuration from a YAML file with optional validation.
+
+    Args:
+        config_path: Path to the configuration file
+
+    Returns:
+        Configuration dictionary
+
+    Raises:
+        FileNotFoundError: If config file doesn't exist
+        yaml.YAMLError: If YAML parsing fails
+        ValueError: If validation fails
+    """
+    config_path = Path(config_path)
+    if not config_path.exists():
+        raise FileNotFoundError(f"Configuration file not found: {config_path}")
+
+    try:
+        with open(config_path, "r") as file:
+            config = yaml.safe_load(file)
+    except yaml.YAMLError as e:
+        logger.error(f"YAML parsing failed for {config_path}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise yaml.YAMLError(f"Failed to parse YAML file {config_path}: {e}")
+    except Exception as e:
+        logger.error(f"Unexpected error loading config from {config_path}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise RuntimeError(f"Failed to load configuration: {e}")
+
+    if config is None:
+        raise ValueError(f"Configuration file is empty: {config_path}")
+
+    def expand_env_vars(obj: Any, max_recursion_depth: int = 20) -> Any:
+        """Recursively expand environment variables in strings within the config."""
+        if max_recursion_depth <= 0:
+            raise ValueError(
+                "Maximum recursion depth reached while expanding environment variables. Default is 20."
+            )
+
+        # if this is a dict, recurse into values
+        if isinstance(obj, dict):
+            return {
+                k: expand_env_vars(v, max_recursion_depth - 1) for k, v in obj.items()
+            }
+        # if this is a list, recurse into items
+        elif isinstance(obj, list):
+            return [expand_env_vars(i, max_recursion_depth - 1) for i in obj]
+        # if this is a string, expand env vars and user (~)
+        elif isinstance(obj, str):
+            expanded = os.path.expandvars(os.path.expanduser(obj))
+            return expanded
+        else:
+            return obj
+
+    config = expand_env_vars(config)
+    return config
+
+def _compute_gfp(meg_data: np.ndarray, axis: int = 0) -> np.ndarray:
+    """Compute Global Field Power (GFP) from MEG data.
+    
+    Args:
+        meg_data: MEG data array, shape (n_channels, n_timepoints) or (n_timepoints, n_channels)
+        axis: Axis along which channels are located (0 for first dim, 1 for second dim)
+        
+    Returns:
+        GFP values, shape (n_timepoints,)
+    """
+    gfp = np.std(meg_data, axis=axis)
+    return gfp
+
+
+def find_gfp_peak_in_window(
+    meg_data: np.ndarray,
+    window_start: int,
+    window_end: int,
+    sampling_rate: float
+) -> tuple[int, float]:
+    """Find the peak GFP within a window.
+    
+    Args:
+        meg_data: MEG data array, shape (n_channels, n_timepoints)
+        window_start: Start sample of the window
+        window_end: End sample of the window
+        sampling_rate: Sampling rate in Hz
+        
+    Returns:
+        Tuple of (peak_sample, peak_time_in_seconds)
+    """
+    # Extract window
+    window_data = meg_data[:, window_start:window_end]
+    
+    # Compute GFP
+    gfp = _compute_gfp(window_data, axis=0)
+    
+    # Find peak
+    peak_idx = np.argmax(gfp)
+    peak_sample = window_start + peak_idx
+    peak_time = peak_sample / sampling_rate
+    
+    return int(peak_sample), float(peak_time)

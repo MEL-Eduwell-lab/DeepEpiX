@@ -23,6 +23,7 @@ def run_model_pipeline(
         "transformer.ckpt": "model_pipeline.run_hbiot",
         "hbiot.ckpt": "model_pipeline.run_hbiot",
         "model_CNN_EEG.keras": "model_pipeline.run_CNN_EEG_model",
+        "uiednet.ckpt": "model_pipeline.run_uiednet",  # EEG model, backend to be added
         # "new_model": "model_pipeline.run_new_model",  # example
     }
 

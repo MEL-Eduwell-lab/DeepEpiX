@@ -68,7 +68,7 @@ callbacks:
       n_bins: 10
     name: CalibrationDiagnosticCallback
 data:
-  MEGOnTheFlyDataModule:
+  OnTheFlyDataModule:
     auto_generate_splits: true
     cache_dir: ""
     dataloader_config:
@@ -165,7 +165,7 @@ data:
       - ""
     samples_per_recording: 90
     splits_dir: ""
-  name: MEGOnTheFlyDataModule
+  name: OnTheFlyDataModule
 error_handling:
   include_traceback: true
   log_exceptions: true

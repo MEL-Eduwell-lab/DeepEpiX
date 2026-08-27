@@ -10,7 +10,8 @@ import logging
 import pandas as pd
 import lightning as L #type: ignore
 
-from utils_biot.data import load_config, PredictionDataModule, MEGSpikeDetector
+from lightning_datamodules.datamodules import PredictionDataModule, SPikeDetector
+from utils import load_config
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ def load_model(checkpoint_path, config):
     """Load Model from checkpoint"""
     input_shape = tuple(config["model"][config["model"]["name"]]["input_shape"])
 
-    model = MEGSpikeDetector.load_from_checkpoint(
+    model = SPikeDetector.load_from_checkpoint(
         checkpoint_path, config=config, input_shape=input_shape, log_dir=None
     )
 
@@ -192,6 +193,7 @@ def test_model(
     prediction_config = {
         "signal_path": signal_cache_path,
         "mne_info_path": mne_info_cache_path,
+        "modality": "MEG",
         "reference_channels_path": reference_channels_path,
         "dataset_config": config["data"][config["data"]["name"]]["dataset_config"],
         "dataloader_config": config["data"][config["data"]["name"]][

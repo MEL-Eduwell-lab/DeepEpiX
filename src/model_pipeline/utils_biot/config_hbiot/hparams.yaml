@@ -68,7 +68,7 @@ callbacks:
       n_bins: 10
     name: CalibrationDiagnosticCallback
 data:
-  MEGOnTheFlyDataModule:
+  OnTheFlyDataModule:
     auto_generate_splits: true
     cache_dir: /sps/crnl/eliasB/data/processed/meg_preprocessing
     dataloader_config:
@@ -165,7 +165,7 @@ data:
       - /sps/crnl/pmouches/data/all_clean_patients
     samples_per_recording: 90
     splits_dir: /sps/crnl/eliasB/data/processed/cv_splits
-  name: MEGOnTheFlyDataModule
+  name: OnTheFlyDataModule
 error_handling:
   include_traceback: true
   log_exceptions: true
