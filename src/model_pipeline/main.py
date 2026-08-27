@@ -15,7 +15,7 @@ def run_model_pipeline(
     mne_info_cache_path,
     signal_name,
 ):
-    
+
     # === Determine module based on model_name ===
     MODEL_MODULES = {
         "model_CNN.keras": "model_pipeline.run_CNN_features_models",
@@ -34,8 +34,7 @@ def run_model_pipeline(
     model_module = importlib.import_module(module_name)
     test_model = getattr(model_module, "test_model")
 
-    # === Run the model ===
-    return test_model(
+    kwargs = dict(
         model_name=model_name,
         output_path=output_path,
         signal_cache_path=signal_cache_path,
@@ -44,6 +43,9 @@ def run_model_pipeline(
         channel_groups=channel_groups,
         signal_name=signal_name,
     )
+
+    # === Run the model ===
+    return test_model(**kwargs)
 
 
 if __name__ == "__main__":
@@ -56,7 +58,8 @@ if __name__ == "__main__":
     signal_cache_path = sys.argv[7]
     mne_info_cache_path = sys.argv[8]
     signal_name = sys.argv[9]
-    
+
+
     if not os.path.exists(signal_cache_path):
         raise FileNotFoundError(f"Singal file not found: {signal_cache_path}")
     if not os.path.exists(mne_info_cache_path):

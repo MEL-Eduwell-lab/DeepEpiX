@@ -398,6 +398,7 @@ class UIEDNET(nn.Module):
         tf_emb_size: int = 512,
         use_segmentation: bool = True,
         dropout: float = 0.1,
+        **kwargs
     ):
         super().__init__()
         assert input_shape[-1] % 16 == 0, "n_time must be divisible by 16."

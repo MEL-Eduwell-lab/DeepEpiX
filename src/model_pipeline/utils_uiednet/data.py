@@ -9,7 +9,7 @@ import pydantic
 import mne
 import os
 
-from utils import find_gfp_peak_in_window
+from utils import find_gfp_peak_in_window, load_raw_from_parquet
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +99,7 @@ class PredictDataset(torch.utils.data.Dataset):
         dataset_config: dict[str, Any],
         good_channels : list[str],
         contextual: bool = True,
+        mne_info_path: str | None = None,
     ):
         """Initialize prediction dataset with sequential chunk extraction.
 
@@ -109,6 +110,7 @@ class PredictDataset(torch.utils.data.Dataset):
             contextual: Using contextual model or not
         """
         self.file_path = file_path
+        self.mne_info_path = mne_info_path
         self.dataset_config = dataset_config
         self.good_channels = good_channels
         self.contextual = contextual
@@ -131,6 +133,7 @@ class PredictDataset(torch.utils.data.Dataset):
                 self.file_path,
                 self.dataset_config,
                 good_channels=self.good_channels,
+                mne_info_path=self.mne_info_path,
             )
 
             self.sampling_rate = raw.info['sfreq']
@@ -320,6 +323,7 @@ def load_and_process_eeg_data(
     file_path: str,
     config: dict[str, Any],
     good_channels: list[str],
+    mne_info_path: str | None = None,
 ) -> tuple[BaseRaw, np.ndarray, dict[str, Any]]:
     """
     Load and process EEG data with comprehensive preprocessing pipeline.
@@ -410,13 +414,25 @@ def load_and_process_eeg_data(
     """
     try:
         file_ext = os.path.splitext(str(file_path))[1].lower()
-        reader = RAW_READERS.get(file_ext)
-        if reader is None:
-            raise ValueError(
-                f"Unsupported file type '{file_ext}' for {file_path}. "
-                f"Supported extensions: {list(RAW_READERS.keys())}"
-            )
-        raw = reader(str(file_path), preload=True, verbose=False)
+        if file_ext == ".parquet":
+            if not mne_info_path or not os.path.exists(str(mne_info_path)):
+                raise ValueError(
+                    f"Cached parquet signal '{file_path}' requires a companion "
+                    f"MNE metadata JSON; got mne_info_path={mne_info_path!r}."
+                )
+            raw, _ = load_raw_from_parquet(str(file_path), str(mne_info_path))
+            # The cache is written via mne ``to_data_frame`` which scales EEG to
+            # µV; reconstructing a RawArray from it makes MNE treat those values
+            # as volts. Rescale back to volts for a consistent downstream unit.
+            raw.apply_function(lambda x: x * 1e-6, picks="all", channel_wise=False)
+        else:
+            reader = RAW_READERS.get(file_ext)
+            if reader is None:
+                raise ValueError(
+                    f"Unsupported file type '{file_ext}' for {file_path}. "
+                    f"Supported extensions: {list(RAW_READERS.keys()) + ['.parquet']}"
+                )
+            raw = reader(str(file_path), preload=True, verbose=False)
         raw.pick(picks=["eeg"])
 
         montage_type: str = config.get("montage_type", "referential")
@@ -430,7 +446,7 @@ def load_and_process_eeg_data(
         
         # Check for invalid values at the end of the recording
         raw_data_temp = raw.get_data()
-        is_invalid = ~np.isfinite(raw_data_temp) | (np.abs(raw_data_temp) > 1.0)
+        is_invalid = ~np.isfinite(raw_data_temp) | (np.abs(raw_data_temp) > 2.0)
         invalid_indices = np.where(is_invalid.any(axis=0))[0]
 
         if len(invalid_indices) > 0:
@@ -570,6 +586,13 @@ def apply_standard_filters(raw: BaseRaw, config: dict[str, Any]) -> None:
     """
     if raw.info['sfreq'] != config['sampling_rate']:
         raw.resample(sfreq=config['sampling_rate'])
+
+    # In prediction the signal is already band-pass / notch filtered upstream
+    # (by the session or by preprocess_same_as_training), so re-filtering here
+    # would stack a second pass. The caller signals this by nulling l_freq/h_freq;
+    # only the resample above (needed to match the model's window length) is kept.
+    if config.get('l_freq') is None and config.get('h_freq') is None:
+        return
 
     raw.filter(
         l_freq=config.get('l_freq', 0.5),
@@ -798,7 +821,7 @@ def normalize_data(data: np.ndarray, norm_config: dict, eps: float | None = None
     
     elif method == 'robust_zscore':
         median = np.median(data, axis=axis, keepdims=True)
-        mad = stats.median_abs_deviation(data, axis=axis)  # type: ignore
+        mad = stats.median_abs_deviation(data, axis=axis, scale='normal')  # type: ignore
         if axis is not None:
             mad = np.expand_dims(mad, axis=axis)
         return (data - median) / (mad + eps)  # type: ignore

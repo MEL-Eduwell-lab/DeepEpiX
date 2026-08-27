@@ -307,7 +307,7 @@ def normalize_data(data: np.ndarray, norm_config: Dict, eps: Optional[float] = N
     
     elif method == 'robust_zscore':
         median = np.median(data, axis=axis, keepdims=True)
-        mad = stats.median_abs_deviation(data, axis=axis)  # type: ignore
+        mad = stats.median_abs_deviation(data, axis=axis, scale='normal')  # type: ignore
         if axis is not None:
             mad = np.expand_dims(mad, axis=axis)
         return (data - median) / (mad + eps)  # type: ignore

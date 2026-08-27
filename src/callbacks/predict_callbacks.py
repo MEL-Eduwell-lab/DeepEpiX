@@ -290,19 +290,46 @@ def register_execute_predict_script():
                 if signal_version and signal_version != "__raw__" and signal_version in ica_results
                 else None
             )
+            # Always produce the prediction signal in the referential channel
+            # space (get_original_signal_freq_data drops a bipolar display
+            # reference); the model's own montage_type, kept from training,
+            # drives any derivation downstream. Only the session filtering,
+            # notch and removed ICA components are carried over.
+            predict_freq_data = pu.get_original_signal_freq_data(freq_data)
 
             signal_cache_path = os.path.join(
-                cache_dir, 
-                f"signal_{hashlib.md5(f'{data_path}_{json.dumps(freq_data, sort_keys=True)}_{sorted(excluded_ica) if excluded_ica else []}_{preprocessing_option}'.encode()).hexdigest()}.parquet"
+                cache_dir,
+                f"signal_{hashlib.md5(f'{data_path}_{json.dumps(predict_freq_data, sort_keys=True)}_{sorted(excluded_ica) if excluded_ica else []}_{preprocessing_option}'.encode()).hexdigest()}.parquet"
             )
-            mne_info_path = pu.get_cache_filename(data_path, freq_data).replace(".parquet", "_mne_meta.json")
+            mne_info_path = signal_cache_path.replace(".parquet", "_mne_meta.json")
+
+            # prep_raw is the referential signal ICA was fit on; build it once if
+            # either the ICA segments or the sidecar still need it.
+            prep_raw = None
+            if excluded_ica or not os.path.exists(mne_info_path):
+                prep_raw = pu.sort_filter_resample(data_path, predict_freq_data, channels_dict)
+
+            if excluded_ica:
+                # extract_preprocess_signal only *reads* ICA-cleaned segments, it
+                # never applies ICA. Regenerate any missing segment here (in the
+                # referential scalp space) so we don't silently fall back to the
+                # non-ICA signal. get_reconstructed_signal_dask is a no-op when
+                # the segment is already cached.
+                for start_time, end_time in chunk_limits:
+                    pu.get_reconstructed_signal_dask(
+                        data_path, predict_freq_data, start_time, end_time,
+                        signal_version, excluded_ica, prep_raw,
+                    )
+
+            if not os.path.exists(mne_info_path):
+                pu.save_mne_sidecar(signal_cache_path, prep_raw)
 
             if not os.path.exists(signal_cache_path):
                 signal = pru.extract_preprocess_signal(
-                    data_path, freq_data, channels_dict, chunk_limits, excluded_ica
+                    data_path, predict_freq_data, channels_dict, chunk_limits, excluded_ica
                 )
                 print(f"Variance : {signal.var().mean()} | Shape : {signal.shape}")
-                signal.to_parquet(signal_cache_path)     
+                signal.to_parquet(signal_cache_path)
             else:
                 print(f"✅ Signal already in cache — skip extraction ({signal_cache_path})")
 
@@ -339,7 +366,6 @@ def register_execute_predict_script():
                 str(signal_cache_path),
                 str(mne_info_path),
                 str(signal_name_with_preprocess),
-                str(preprocessing_option),
             ]
 
             try:

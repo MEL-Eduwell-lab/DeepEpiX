@@ -650,11 +650,15 @@ def preprocess_same_as_training(model_config, model_name, data_path, channels_di
     model_cfg = config.get(model_name, {})
 
     notch = model_cfg.get("notch")
+    notch_freq = None if notch == "None" else notch
     freq_data = {
         "resample_freq": model_cfg.get("sfreq"),
         "low_pass_freq":  model_cfg.get("lowpass"),
         "high_pass_freq": model_cfg.get("highpass"),
-        "notch_freq":     None if notch == "None" else notch,
+        # Expand to harmonics like the training pipeline does, so that
+        # "same as training" reproduces the notch it applied (a single
+        # fundamental would leave 100 Hz, 150 Hz... untouched).
+        "notch_freq":     get_notch_harmonics(notch_freq, model_cfg.get("sfreq")),
     }
     
     @delayed

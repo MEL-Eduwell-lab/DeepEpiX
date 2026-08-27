@@ -416,8 +416,7 @@ class SPikeDetector(L.LightningModule):
             output = self.forward(X, channel_mask=channel_mask, window_mask=window_mask, force_sequential=True)
 
         # Apply temperature scaling and compute calibrated probabilities
-        scaled_output = self.apply_temperature_scaling(output)
-        clf_logits = self._extract_logits(scaled_output)
+        clf_logits = self.apply_temperature_scaling(self._extract_logits(output))
         probs = torch.sigmoid(clf_logits).cpu().detach()
 
         # Prepare outputs
@@ -444,60 +443,6 @@ class SPikeDetector(L.LightningModule):
             outputs['seg_logits'] = output['seg_logits'].cpu().detach()
             outputs['seg_probs'] = output['seg_probs'].cpu().detach()
         return outputs
-
-    def _collect_batch_outputs(
-        self,
-        batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, dict],
-        output: torch.Tensor | dict,
-        seg_targets: torch.Tensor | None = None,
-    ) -> dict[str, Any]:
-        """Collect outputs for a single batch.
-
-        Args:
-            batch: Input batch (X, y, window_mask, channel_mask, metadata)
-            output: Model output logits for the batch
-            seg_targets : Segmentation gaussian masks
-
-        Returns:
-            Dictionary with batch outputs including per-window losses
-        """
-        X, y, window_mask, _channel_mask, metadata = batch
-
-        # Apply temperature scaling for calibrated probabilities
-        scaled_output = self.apply_temperature_scaling(output)
-        clf_logits = self._extract_logits(scaled_output)
-        probs = torch.sigmoid(clf_logits)
-
-        # Compute per-window BCE loss without reduction for analysis (using scaled logits)
-        # Note: Both scaled_logits and y are [B, N] for binary classification
-        per_window_loss = torch.nn.functional.binary_cross_entropy_with_logits(
-            scaled_output, y, reduction="none"
-        )
-        probs = torch.sigmoid(scaled_output)
-
-        result = {
-            "logits": clf_logits.cpu().detach().float().numpy(),
-            "probs": probs.cpu().detach().float().numpy(),
-            "predictions": (probs >= self.clf_threshold).float().cpu().detach().numpy(),
-            "gt": y.cpu().detach().float().numpy(),
-            "mask": window_mask.cpu().detach().float().numpy(),
-            "losses": per_window_loss.cpu()
-            .detach()
-            .float()
-            .numpy(),  # Per-window losses
-            "metadata": metadata if metadata else {},
-            "batch_size": X.shape[0],
-            "n_windows": X.shape[1],
-        }
-
-        if isinstance(output, dict) and 'seg_logits' in output:
-            result['seg_logits'] = output['seg_logits'].cpu().detach().float().numpy()
-            result['seg_probs'] = output['seg_probs'].cpu().detach().float().numpy()
-
-        if seg_targets is not None:
-            result["seg_targets"] = seg_targets.cpu().detach().float().numpy()
-
-        return result
 
 def predict_collate_fn(batch):
     """Collate function for prediction batches with padding and masking.

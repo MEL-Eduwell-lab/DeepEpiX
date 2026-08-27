@@ -40,12 +40,14 @@ def _build_meg(
 def _build_eeg(
     *,
     signal_path: str,
+    mne_info_path: str | None = None,
     dataset_config: Dict[str, Any],
     reference_channels_path: str | None = None,
     **_ignored: Any,
 ) -> torch.utils.data.Dataset:
     return EEGPredictDataset(
         file_path=signal_path,
+        mne_info_path=mne_info_path,
         dataset_config=dataset_config,
         good_channels=_load_channels(reference_channels_path),
         contextual=dataset_config.get('contextual', True),

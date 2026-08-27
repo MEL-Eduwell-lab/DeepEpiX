@@ -306,14 +306,13 @@ layout = html.Div(
                                 dcc.Dropdown(
                                     id="eeg-reference",
                                     options=[
-                                        {"label": "None", "value": "none"},
                                         {"label": "Average", "value": "average"},
                                         {
                                             "label": "Bipolar (double banana)",
                                             "value": "double_banana_bipolar",
                                         },
                                     ],
-                                    value="none",
+                                    value="average",
                                     clearable=False,
                                     disabled=True,
                                     style={"width": "200px"},

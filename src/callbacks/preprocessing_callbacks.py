@@ -50,7 +50,9 @@ def register_toggle_eeg_reference():
         """
         if has_scalp_eeg:
             return False, dash.no_update
-        return True, "none"
+        # MEG recording: re-referencing is irrelevant ("average" is a no-op with
+        # no scalp electrodes), so just disable the control on a valid value.
+        return True, "average"
 
 
 def register_preprocess_meg_data():
@@ -108,7 +110,7 @@ def register_preprocess_meg_data():
             Upper bound of the bandpass filter in Hz.
         notch_freq : float
             Frequency to be removed by the notch filter (e.g., 50 or 60 Hz).
-        eeg_reference : {"none", "average"}
+        eeg_reference : {"average", "double_banana_bipolar"}
             EEG re-referencing scheme to apply. Ignored for MEG recordings.
         heartbeat_ch_name : str
             Name of the ECG/heartbeat channel for artifact detection.

@@ -3,3 +3,4 @@ mne
 pandas
 tqdm
 joblib
+PyYAML
