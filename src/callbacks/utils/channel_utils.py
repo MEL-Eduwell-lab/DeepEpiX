@@ -6,10 +6,7 @@ from pathlib import Path
 import json
 
 
-# Standard bipolar "double banana" montage used in clinical EEG review,
-# grouped by chain. Each entry is (derived_channel_name, anode, cathode);
-# the derived channel's signal is anode - cathode.
-TCP_AR_BIPOLAR_MONTAGE = {
+DOUBLE_BANANA_BIPOLAR = {
     "Left Temporal": [
         ("Fp1-F7", "Fp1", "F7"),
         ("F7-T3", "F7", "T3"),
@@ -41,7 +38,7 @@ TCP_AR_BIPOLAR_MONTAGE = {
 }
 
 
-def apply_bipolar_montage(raw, montage=TCP_AR_BIPOLAR_MONTAGE):
+def apply_bipolar_montage(raw, montage=DOUBLE_BANANA_BIPOLAR):
     """
     Re-reference EEG data to a predefined bipolar montage (anode - cathode
     pairs), replacing the original channels with the derived ones.
@@ -196,16 +193,16 @@ def get_post_reference_channel_groups(prep_raw, modality, reference, bad_channel
     For the bipolar montage, derived channels (e.g. "Fp1-F7") replace scalp
     electrodes; since they don't match any standard_1020 name, they would
     otherwise be lumped into "Non 10-20 EEG" -- group them by montage chain
-    (e.g. "Left Temporal") instead, matching TCP_AR_BIPOLAR_MONTAGE.
+    (e.g. "Left Temporal") instead, matching DOUBLE_BANANA_BIPOLAR.
     """
     grouped_channels = get_grouped_channels_by_prefix(
         prep_raw, modality, bad_channels=bad_channels
     )
-    if reference != "bipolar_tcp_ar":
+    if reference != "double_banana_bipolar":
         return grouped_channels
 
     remaining_other = grouped_channels.pop("Non 10-20 EEG", [])
-    for chain_name, chain_pairs in TCP_AR_BIPOLAR_MONTAGE.items():
+    for chain_name, chain_pairs in DOUBLE_BANANA_BIPOLAR.items():
         chain_ch_names = {name for name, _, _ in chain_pairs}
         chain_channels = [ch for ch in remaining_other if ch in chain_ch_names]
         if chain_channels:

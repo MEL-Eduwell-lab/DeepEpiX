@@ -309,8 +309,8 @@ layout = html.Div(
                                         {"label": "None", "value": "none"},
                                         {"label": "Average", "value": "average"},
                                         {
-                                            "label": "Bipolar (TCP-AR)",
-                                            "value": "bipolar_tcp_ar",
+                                            "label": "Bipolar (double banana)",
+                                            "value": "double_banana_bipolar",
                                         },
                                     ],
                                     value="none",

@@ -18,12 +18,12 @@ def extract_paths(model_name):
     """Extract configuration, checkpoint & reference channels path"""
     if os.path.basename(model_name) == "transformer.ckpt":
         config_path = "./utils_biot/config/hparams.yaml"
-        checkpoint_path = "./utils_biot/config/epoch=16-val_pr_auc=0.42.ckpt"
+        checkpoint_path = model_name
         reference_channels_path = "./utils_biot/config/reference_channels.pkl"
 
     elif os.path.basename(model_name) == "hbiot.ckpt":
         config_path = "./utils_biot/config_hbiot/hparams.yaml"
-        checkpoint_path = "./utils_biot/config_hbiot/epoch=23-val_pr_auc=0.48.ckpt"
+        checkpoint_path = model_name
         reference_channels_path = "./utils_biot/config_hbiot/reference_channels.pkl"
 
     if checkpoint_path is None or not os.path.exists(checkpoint_path):

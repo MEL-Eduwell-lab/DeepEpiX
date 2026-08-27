@@ -59,7 +59,7 @@ def get_original_signal_freq_data(freq_data):
     original channels. "average" reference is left untouched since it
     doesn't change channel identity.
     """
-    if freq_data.get("reference") == "bipolar_tcp_ar":
+    if freq_data.get("reference") == "double_banana_bipolar":
         return {**freq_data, "reference": "none"}
     return freq_data
 
@@ -81,7 +81,7 @@ def sort_filter_resample(data_path, freq_data, channels_dict):
         scalp_names = [raw.ch_names[i] for i in chu.get_scalp_eeg_picks(raw.info)]
         if scalp_names:
             raw.set_eeg_reference(ref_channels=scalp_names)
-    elif reference == "bipolar_tcp_ar":
+    elif reference == "double_banana_bipolar":
         raw = chu.apply_bipolar_montage(raw)
 
     # Apply filtering and resampling
@@ -551,7 +551,7 @@ def get_reconstructed_signal_dask(
     # Re-derive the bipolar montage on the cleaned signal so the display
     # (which shows bipolar channels when that reference is selected)
     # reflects the ICA cleaning.
-    if freq_data.get("reference") == "bipolar_tcp_ar":
+    if freq_data.get("reference") == "double_banana_bipolar":
         cleaned_raw = chu.apply_bipolar_montage(cleaned_raw)
 
     cleaned_df = cleaned_raw.to_data_frame(index="time")
