@@ -74,7 +74,7 @@ def register_save_modifications():
         n_clicks : int
             Trigger count from the save button.
         data_path : str
-            Source path of the M/EEG data.
+            Source path of the MEG/EEG data.
         save_format : str
             Desired export format ("original" or "fif").
         annotations_to_save : list of str

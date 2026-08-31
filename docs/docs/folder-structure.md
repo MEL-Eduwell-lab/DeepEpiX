@@ -34,7 +34,9 @@ DeepEpiX/
 │   │   ├── ...
 │   │   └── pageN_layout.py  
 │   ├── model_pipeline/   # Extracted from https://github.com/pmouches/DeepEpi/tree/main/pipeline with some modifications
-│   ├── models/           # ML models from from https://github.com/pmouches/DeepEpi/tree/main/
+│   ├── models/           # ML models, organized by modality
+│   │   ├── MEG/           # models run on MEG recordings
+│   │   └── EEG/           # models run on scalp EEG recordings
 │   ├── pages/            # Multi-page app
 │   │   ├── page1.py 
 │   │   ├── page2.py 

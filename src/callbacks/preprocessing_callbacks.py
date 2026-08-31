@@ -93,7 +93,7 @@ def register_preprocess_meg_data():
         bad_channels,
     ):
         """
-        Execute M/EEG preprocessing pipeline, save mne info & update application state.
+        Execute MEG/EEG preprocessing pipeline, save mne info & update application state.
         Preprocessing a novel example resets all history and ICA related components.
 
         Parameters
@@ -101,7 +101,7 @@ def register_preprocess_meg_data():
         n_clicks : int
             Number of times the preprocess button has been clicked.
         data_path : str
-            Path to the raw M/EEG file or directory.
+            Path to the raw MEG/EEG file or directory.
         resample_freq : float
             Target sampling rate in Hz.
         high_pass_freq : float

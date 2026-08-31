@@ -58,7 +58,7 @@ def load_model(checkpoint_path, config):
         checkpoint_path, config=config, input_shape=input_shape, log_dir=None,
         weights_only=False, strict=False
     )
-
+    
     return model
 
 def extract_peaks_from_mask(

@@ -155,7 +155,7 @@ def run_smoothgrad(
     y_pred = full_result["probas"].to_numpy()
 
     total_nb_windows = len(blocks_file)
-    total_nb_points = data_file["m/eeg"][0].shape[1]
+    total_nb_points = data_file["MEG/EEG"][0].shape[1]
 
     full_grads = np.zeros((total_nb_points, dim[1]))
 

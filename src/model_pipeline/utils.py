@@ -80,7 +80,7 @@ def read_raw(data_path, preload, verbose, bad_channels=None):
         )
 
     else:
-        raise ValueError("Unrecognized file or folder type for M/EEG data.")
+        raise ValueError("Unrecognized file or folder type for MEG/EEG data.")
 
     if bad_channels:
         raw.drop_channels(bad_channels)
@@ -136,12 +136,12 @@ def load_raw_from_parquet(parquet_path: str, json_path: str) -> tuple[mne.io.Raw
 
 def interpolate_missing_channels(raw, good_channels):
     """
-    Interpolate missing M/EEG channels from a known good channel layout.
+    Interpolate missing MEG/EEG channels from a known good channel layout.
 
     Parameters
     ----------
     raw : mne.io.RawArray
-        The raw M/EEG data object with potentially missing channels.
+        The raw MEG/EEG data object with potentially missing channels.
     good_channels : dict
         Dictionary mapping channel base names to their 3D sensor locations
         (as numpy arrays), representing the full expected channel layout.

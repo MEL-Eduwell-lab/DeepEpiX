@@ -20,7 +20,9 @@ To do so, you need to install the app locally because it requires code adjustmen
     `.torchenv` → PyTorch models (`.pth`, `.ckpt`)  
 
 - **Model folder**:  
-  Place your model inside `models/` with the correct extension.
+  Place your model inside `models/<MODALITY>/` (`models/MEG/` or `models/EEG/`)
+  with the correct extension. The subfolder tells the app which modality the
+  model applies to, so it is only offered for matching recordings.
 
 ---
 
@@ -28,7 +30,7 @@ To do so, you need to install the app locally because it requires code adjustmen
 
 When you run a model:
 
-1. The app detects the model type based on the file extension.
+1. The app detects the model type based on the file extension and modality folder.
 2. It selects the corresponding Python binary (`.tfenv` or `.torchenv`).
 3. A subprocess is started to execute the model script (`model_pipeline/main.py`).
 4. Results are saved to the cache directory for later retrieval.
@@ -41,7 +43,8 @@ Follow these steps to integrate your trained model into the inference pipeline
 
 **1. Add Your Model File**
 
-Place your trained model inside the `models/` directory:
+Place your trained model inside the matching modality subfolder,
+`models/MEG/` or `models/EEG/`:
 
 - TensorFlow → `.keras` or `.h5`  
 - PyTorch → `.pth` or `.ckpt`
@@ -80,10 +83,10 @@ model_pipeline/run_example.py
 
 **4. Register Your Model**
 
-In `model_pipeline/main.py`, map your model name to its pipeline by updating `MODEL_MODULE`:
+In `model_pipeline/main.py`, map your model name to its pipeline by updating `MODEL_MODULES`:
 
 ```python
-MODEL_MODULE = {
+MODEL_MODULES = {
     "your/model/name": "model_pipeline.run_model_name",
 }
 ```
@@ -109,14 +112,29 @@ static/model_config.json
 
 This will be use when making inference using the "same as training" configuration.
 
+The file is keyed by modality then file name, so a checkpoint with the same
+name in `models/MEG/` and `models/EEG/` can carry different filters:
+
+```json
+{
+  "EEG": {
+    "your_model.ckpt": { "sfreq": 200, "highpass": 10.0, "lowpass": 70.0, "notch": 50.0 }
+  }
+}
+```
+
+Supported keys: `sfreq`, `highpass`, `lowpass`, `notch`. The referential /
+bipolar choice is *not* set here: it is defined in the model pipeline's
+`hparams` file and applied by the model itself from the referential signal.
+
 ---
 
 ## ✅ Checklist Before Running
 
-* Add your model to `models/`.
+* Add your model to `models/MEG/` or `models/EEG/`.
 * (Optional) Configure environments in `config.py`.
 * Create a pipeline script in `model_pipeline/`.
-* Register your model in `MODEL_MODULE`
+* Register your model in `MODEL_MODULES`
 * Extend the pipeline if needed
 * Define training configuration in `model_config.json`
 

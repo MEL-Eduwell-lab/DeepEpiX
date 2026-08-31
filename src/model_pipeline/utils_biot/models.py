@@ -1029,9 +1029,10 @@ class BIOTHierarchicalClassifier(nn.Module):
                 # Extract chunk
                 chunk_x = x_reshaped[chunk_start:chunk_end]
                 chunk_mask = channel_mask_reshaped[chunk_start:chunk_end] if channel_mask_reshaped is not None else None
+                chunk_unknown_mask = unknown_mask_reshaped[chunk_start:chunk_end] if unknown_mask_reshaped is not None else None
 
                 # Process chunk through encoder
-                chunk_tokens = self.window_encoder(chunk_x, chunk_mask, unk_augment=unk_augment, unknown_mask=unknown_mask)
+                chunk_tokens = self.window_encoder(chunk_x, chunk_mask, unk_augment=unk_augment, unknown_mask=chunk_unknown_mask)
                 chunks.append(chunk_tokens)
 
             # Concatenate all chunks

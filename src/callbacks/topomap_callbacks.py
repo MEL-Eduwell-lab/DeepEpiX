@@ -39,7 +39,7 @@ def register_display_topomap_on_click():
         click_info : dict
             Data from the Plotly click event containing coordinates (x is time).
         data_path : str
-            Path to the raw M/EEG data file.
+            Path to the raw MEG/EEG data file.
         is_button_active : bool
             State of the topomap toggle button (False usually indicates 'active' outline).
         page_selection : int or str

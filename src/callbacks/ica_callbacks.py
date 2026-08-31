@@ -42,7 +42,7 @@ def register_compute_ica():
         components_dir_store,
     ):
         """
-        Decompose M/EEG signals into independent components using ICA.
+        Decompose MEG/EEG signals into independent components using ICA.
 
         This function validates input parameters, executes the ICA decomposition 
         (or retrieves it from cache), save computed ICA in cache, and triggers the Dask-based generation
@@ -177,7 +177,7 @@ def register_apply_ica_exclusion():
             Store containing the session's processing history and current 
             excluded components.
         data_path : str
-            Path to the raw M/EEG data file.
+            Path to the raw MEG/EEG data file.
         chunk_limits : list of tuples
             Time windows (start, end) used for partitioned processing.
         ica_result_path : str

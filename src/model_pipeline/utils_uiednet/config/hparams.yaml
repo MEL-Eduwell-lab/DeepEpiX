@@ -75,7 +75,7 @@ data:
     auto_generate_splits: false
     dataloader_config:
       test:
-        batch_size: 128
+        batch_size: 1
         drop_last: false
         num_workers: 6
         pin_memory: true
@@ -257,7 +257,7 @@ model:
     - 1
     - 19
     - 768
-    log_dir: /home/labmember/Desktop/workspace_GIT/EEG_workflow/logs/EEG_spike_detection/0.0.9_fold3
+    log_dir: "${log_dir}"
     tf_emb_size: 256
     tf_heads: 4
     tf_layers: 1

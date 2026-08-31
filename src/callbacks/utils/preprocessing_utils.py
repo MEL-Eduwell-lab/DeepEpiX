@@ -190,7 +190,7 @@ def get_preprocessed_dataframe_dask(
     Parameters
     ----------
     data_path : str
-        Path to the source M/EEG data file.
+        Path to the source MEG/EEG data file.
     freq_data : dict
         Dictionary containing filter parameters: 'resample_freq', 'low_pass_freq', 
         'high_pass_freq', and 'notch_freq'.
@@ -281,7 +281,7 @@ def run_ica_processing(data_path, n_components,
                        ica_method, max_iter, decim, 
                        channel_store, cache_dir, ica_store):
     """
-    Perform Independent Component Analysis (ICA) on M/EEG data with caching.
+    Perform Independent Component Analysis (ICA) on MEG/EEG data with caching.
 
     This function checks if an ICA decomposition with the specified parameters 
     already exists in the cache and session store. If not, it loads the raw data, 
@@ -291,7 +291,7 @@ def run_ica_processing(data_path, n_components,
     Parameters
     ----------
     data_path : str or Path
-        Path to the raw M/EEG data file.
+        Path to the raw MEG/EEG data file.
     n_components : int or float
         Number of principal components to utilize. If float, it represents the 
         fraction of variance to explain.
@@ -646,8 +646,12 @@ def preprocess_same_as_training(model_config, model_name, data_path, channels_di
     with open(model_config, 'r') as file:
         config = json.load(file)
 
+    # model_config.json is keyed by modality then file name: transformer.ckpt
+    # and hbiot.ckpt exist in both models/MEG and models/EEG with different
+    # training filters. model_name is the full path chosen in the dropdown.
+    modality = os.path.basename(os.path.dirname(model_name)).upper()
     model_name = os.path.basename(model_name)
-    model_cfg = config.get(model_name, {})
+    model_cfg = config.get(modality, {}).get(model_name, {})
 
     notch = model_cfg.get("notch")
     notch_freq = None if notch == "None" else notch

@@ -103,7 +103,7 @@ def generate_graph_time_channel(
     excluded_ica_components=None,
 ):
     """
-    Handles the preprocessing and figure generation for the M/EEG signal
+    Handles the preprocessing and figure generation for the MEG/EEG signal
     visualization.
 
     `channels_region` is the scalp-space channel grouping, used to
@@ -257,7 +257,7 @@ def generate_graph_time_ica(
     time_range : tuple of float
         The (start, end) timestamps in seconds for the data chunk to load.
     data_path : str
-        Path to the original raw M/EEG data file.
+        Path to the original raw MEG/EEG data file.
     ica_result_path : str
         Path to the pre-computed MNE ICA solution file (.fif).
     color_selection : {'rainbow', 'blue', 'white'}

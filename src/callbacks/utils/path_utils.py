@@ -8,7 +8,7 @@ from dash import html
 import dash_bootstrap_components as dbc
 import config
 
-# Single-file M/EEG formats recognized by the app, mapped to their MNE reader.
+# Single-file MEG/EEG formats recognized by the app, mapped to their MNE reader.
 # ".ds" (CTF) is a folder but is keyed by suffix like the others; BTi/4D is
 # handled separately in read_raw() since it is a folder without a fixed suffix.
 RAW_READERS = {
@@ -43,7 +43,7 @@ def browse_folder():
 def test_valid_path(path: str) -> bool:
     """
     Recursively check if a directory tree contains a valid MEG/EEG dataset:
-    - Any file with a recognized M/EEG suffix (see RAW_READERS)
+    - Any file with a recognized MEG/EEG suffix (see RAW_READERS)
     - Any folder containing an 'hs_file'
     """
     p = Path(path)
@@ -56,7 +56,7 @@ def test_valid_path(path: str) -> bool:
 
     # Recursive search
     for root, dirs, files in os.walk(p):
-        # Check for recognized M/EEG files
+        # Check for recognized MEG/EEG files
         if any(Path(f).suffix in RAW_READERS for f in files):
             return True
         # Check if any subfolder contains hs_file
@@ -79,7 +79,7 @@ def get_valid_paths(path) -> list:
     """
     Recursively collect all valid dataset paths under a directory:
     - Folders ending with .ds (do not recurse inside)
-    - Files with a recognized M/EEG suffix (see RAW_READERS)
+    - Files with a recognized MEG/EEG suffix (see RAW_READERS)
     - Folders containing 'hs_file'
     Returns a list of Path objects.
     """
@@ -165,7 +165,7 @@ def read_raw(data_path, preload, verbose, bad_channels=None):
         )
 
     else:
-        raise ValueError("Unrecognized file or folder type for M/EEG data.")
+        raise ValueError("Unrecognized file or folder type for MEG/EEG data.")
 
     if bad_channels:
         raw.drop_channels(bad_channels)

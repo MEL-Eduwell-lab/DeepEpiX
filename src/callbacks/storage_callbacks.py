@@ -51,7 +51,7 @@ def register_populate_memory_tab_contents():
             Dictionary containing 'resample_freq', 'low_pass_freq', 
             'high_pass_freq', and 'notch_freq'.
         annotations_data : list of dict
-            List of dictionaries representing M/EEG annotations/markers.
+            List of dictionaries representing MEG/EEG annotations/markers.
         history_data : list of dict
             Logged history of actions performed during the session.
 

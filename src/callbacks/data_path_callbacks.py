@@ -30,7 +30,7 @@ def register_update_dropdown():
                 if not dpu.test_valid_path(data_path):
                     return (
                         dash.no_update,
-                        "Selected folder is not a valid M/EEG folder "
+                        "Selected folder is not a valid MEG/EEG folder "
                         "(.ds, .fif, .edf, .bdf, .vhdr, .set, or 4D).",
                     )
 
@@ -59,7 +59,7 @@ def register_handle_valid_data_path():
                     True,
                     {"display": "none"},
                     "Path must end with '.ds', '.fif', '.edf', '.bdf', '.vhdr', '.set', "
-                    "or contain 3 files for 4D neuroimaging to be a valid raw M/EEG object.",
+                    "or contain 3 files for 4D neuroimaging to be a valid raw MEG/EEG object.",
                     False,
                 )
 
@@ -78,7 +78,7 @@ def register_handle_valid_data_path():
                     True,
                     True,
                     {"display": "none"},
-                    f"Invalid M/EEG path: {str(e)}",
+                    f"Invalid MEG/EEG path: {str(e)}",
                     False,
                 )
 

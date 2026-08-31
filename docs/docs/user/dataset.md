@@ -15,9 +15,15 @@ Use the **🔽 dropdown** menu to select a subject.
 
 You can open the following types of files:
 
-- `.ds` folders
-- `.fif` files
+- `.ds` folders (CTF MEG)
+- `.fif` files (MEG/EEG)
+- `.edf` / `.bdf` files (EEG)
+- `.vhdr` files (BrainVision EEG)
+- `.set` files (EEGLAB EEG)
 - `4D` folders (must include at least: `rfDC-EEG`, `config` and `hs-file`)
+
+The modality (MEG or scalp EEG) is detected automatically from the loaded file
+and drives which preprocessing options and prediction models are available.
 
 ## 3️⃣ Load and Access Metadata
 
@@ -44,6 +50,15 @@ In this step, the following preprocessing operations are applied:
 
     Specify a channel that clearly captures the heartbeat for ECG event detection using ```mne.find_ecg_events```.
     Default: ```None``` (all channels are used)
+
+- **🧠 EEG Reference** *(scalp EEG recordings only)*
+
+    Re-reference EEG channels before filtering.
+    Default: ```Average```.
+    Choosing ```Bipolar (double banana)``` applies the standard temporal
+    "double banana" montage; pairs whose electrodes are missing from the
+    recording are skipped.
+    This option is disabled for MEG recordings, which don't need re-referencing.
 
 - **❌ Bad Channels**
 

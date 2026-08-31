@@ -43,7 +43,7 @@ Then, open the app in your web browser at:
 
 🥳 You can start editing code while visualizing automatic reloads (if DEBUG is set to True in `config.py`). 
 
-> For quick access, ensure that your M/EEG data is placed in the data folder within the project directory.
+> For quick access, ensure that your MEG/EEG data is placed in the data folder within the project directory.
 
 ## 🗒️ Development Notes
 

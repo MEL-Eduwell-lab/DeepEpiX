@@ -74,7 +74,7 @@ data:
     auto_generate_splits: false
     dataloader_config:
       test:
-        batch_size: 64
+        batch_size: 5
         drop_last: false
         num_workers: 4
         pin_memory: true
@@ -200,19 +200,19 @@ data:
       window_duration_s: 0.2
       window_overlap: 0.5
     dataset_name: OnlineWindowDataset
-    fold: '3'
+    fold: "${fold}"
     force_preprocess: false
     max_cache_gb: null
     n_folds: 5
     prepare_data_per_node: false
-    preprocessed_dir: /home/labmember/Desktop/workspace_GIT/EEG_workflow/local_dataset/preprocessed_recordings
-    reference_coordinates: /home/labmember/Desktop/workspace_GIT/EEG_workflow/local_dataset/reference.pkl
+    preprocessed_dir: "${preprocess_recordings}"
+    reference_coordinates: "${reference_channels}"
     root_dirs:
-    - /home/labmember/Desktop/workspace_GIT/EEG_workflow/vepiset-dataset/data
-    - /home/labmember/Desktop/workspace_GIT/EEG_workflow/local_dataset
+    - "${DATA_DIR_LOCAL}"
+    - "${DATA_DIR_VEPISET}"
     samples_per_recording: auto
     split_mode: holdout
-    splits_dir: /home/labmember/Desktop/workspace_GIT/EEG_workflow/HBIOT_paper/cv_splits
+    splits_dir: "${cv_splits}"
     use_missing_references: true
   name: OnTheFlyDataModule
 error_handling:
@@ -228,13 +228,13 @@ evaluation:
   threshold_optimization: true
 experiment:
   checkpoint_path: null
-  name: EEG_spike_detection
+  name: "${experiment_name}"
   seed: 42
-  version: 0.0.9_fold3
+  version: "${version}"
 logging:
-  log_dir: /home/labmember/Desktop/workspace_GIT/EEG_workflow/logs
+  log_dir: "${log_dir}"
   log_level: INFO
-  pipeline_log: /home/labmember/Desktop/workspace_GIT/EEG_workflow/logs/pipeline.log
+  pipeline_log: "${log_dir}/pipeline.log"
   separator:
     char: '='
     length: 50
@@ -261,7 +261,7 @@ model:
     - 18
     - 40
     linear_attention: false
-    log_dir: /home/labmember/Desktop/workspace_GIT/EEG_workflow/logs/EEG_spike_detection/0.0.9_fold3
+    log_dir: "${log_dir}"
     mode: spec
     n_selected_tokens: 0
     overlap: 0.75
@@ -284,7 +284,7 @@ model:
     linear_attention: false
     mode: raw
     overlap: 0.75
-    reference_coordinates: /home/labmember/Desktop/workspace_GIT/EEG_workflow/local_dataset/reference.pkl
+    reference_coordinates: "${reference_channels}"
     sequential_processing: false
     token_selection:
       n_selected_tokens: 0

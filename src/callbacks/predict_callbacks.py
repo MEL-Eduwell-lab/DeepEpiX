@@ -247,7 +247,7 @@ def register_execute_predict_script():
         predictions_csv_path = cache_dir / f"{os.path.basename(model_path)}_{signal_name_with_preprocess}_predictions.csv"
         smoothgrad_path = cache_dir / f"{os.path.basename(model_path)}_{signal_name_with_preprocess}_smoothGrad.pkl"
 
-        # When same_as_training is selected, ICA component info embedded in the signal name is irrelevant because preprocessing 
+        # When same_as_training is selected, ICA component info embedded in the signal name is irrelevant because preprocessing
         # is redone from scratch using the model's config.
         if preprocessing_option == "same_as_training":
             model_basename = os.path.basename(model_path)
@@ -342,7 +342,7 @@ def register_execute_predict_script():
             model_config = f"{STATIC_DIR}/model_config.json"
 
             print(f"Model config : {model_config}")
-            mne_info_path, df = pu.preprocess_same_as_training(model_config, model_path, data_path, channels_dict, signal_cache_path)
+            mne_info_path, _ = pu.preprocess_same_as_training(model_config, model_path, data_path, channels_dict, signal_cache_path)
         
         # Otherwise, execute model
         if "TensorFlow" in venv:

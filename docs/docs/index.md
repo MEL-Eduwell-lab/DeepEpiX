@@ -1,7 +1,7 @@
 # 🧠 MEG/EEG GUI Software
 
-Welcome to the documentation of DeepEpiX, a Dash-based M/EEG GUI Software.  
-This app provides an interactive web interface for loading, preprocessing, annotating and analyzing raw M/EEG files, and last but not least: running prediction models.
+Welcome to the documentation of DeepEpiX, a Dash-based MEG/EEG GUI Software.  
+This app provides an interactive web interface for loading, preprocessing, annotating and analyzing raw MEG/EEG files, and last but not least: running prediction models.
 <!-- 
 ![My Photo](/images/preprocessing.png) -->
 ![My Photo](images/viz.png)
@@ -10,7 +10,7 @@ This app provides an interactive web interface for loading, preprocessing, annot
 
 ## 🚀 What This App Does
 
-- ✅ Load raw MEG/EEG datasets (`.ds`, `.fif`, or 4D-compatible)
+- ✅ Load raw MEG/EEG datasets (`.ds`, `.fif`, `.edf`, `.bdf`, `.vhdr`, `.set`, or 4D-compatible)
 - ✅ Set frequency filtering parameters (resampling, high-pass, low-pass, notch)
 - ✅ Detect ECG peaks via channel hinting
 - ✅ Drop bad channels
@@ -42,5 +42,5 @@ The app is structured around **pages**, **layout** and **callbacks**.
 ## 👩‍💻 Who Is This For?
 
 - Developers extending or maintaining the app
-- Researchers and clinicians using the app for M/EEG studies
+- Researchers and clinicians using the app for MEG/EEG studies
 - Contributors improving UI, performance, or adding features

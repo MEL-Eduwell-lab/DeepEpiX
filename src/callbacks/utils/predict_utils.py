@@ -60,7 +60,7 @@ def extract_preprocess_signal(
     Parameters
     ----------
     data_path : str
-        Path to the source M/EEG file.
+        Path to the source MEG/EEG file.
     freq_data : dict
         Filtering and sampling parameters. Should contain keys like 
         'resample_freq' and 'low_pass_freq'.
@@ -130,7 +130,7 @@ def _find_cached_segments(
     Parameters
     ----------
     data_path : str
-        Path to the source M/EEG file.
+        Path to the source MEG/EEG file.
     freq_data : dict
         Filtering and sampling parameters used for generating the cache filename.
     excluded_ica_components : list of int or None

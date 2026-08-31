@@ -9,7 +9,7 @@
 <h1 align="center">DeepEpiX</h3>
 
   <p align="center">
-    Software for annotation and automatic spike detection in MEG recordings
+    Software for annotation and automatic spike detection in MEG/EEG recordings
     <br />
     <a href="https://mel-eduwell-lab.github.io/deepepix-docs/">Explore the docs</a>
     &middot;
@@ -22,7 +22,7 @@
 
 <!-- ABOUT THE PROJECT -->
 ## About The Project
-This software is designed for clinicians to annotate raw MEG data and run predictive models for spike detection.  
+This software is designed for clinicians to annotate raw MEG/EEG data and run predictive models for spike detection.  
 
 ### Built With
 

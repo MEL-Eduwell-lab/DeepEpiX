@@ -1,44 +1,54 @@
 {
-    "model_CNN.keras": {
-        "sfreq": 150,
-        "highpass": 0.5,
-        "lowpass": 50.0,
-        "notch": "None"
+    "MEG": {
+        "model_CNN.keras": {
+            "sfreq": 150,
+            "highpass": 0.5,
+            "lowpass": 50.0,
+            "notch": "None"
+        },
+
+        "model_features_only.keras": {
+            "sfreq": 150,
+            "highpass": 0.5,
+            "lowpass": 50.0,
+            "notch": "None"
+        },
+
+        "transformer.ckpt": {
+            "sfreq": 200,
+            "highpass": 1.0,
+            "lowpass": 99.0,
+            "notch": 50.0
+        },
+
+        "hbiot.ckpt": {
+            "sfreq": 200,
+            "highpass": 1.0,
+            "lowpass": 99.0,
+            "notch": 50.0
+        }
     },
 
-    "model_features_only.keras":{
-        "sfreq": 150,
-        "highpass": 0.5,
-        "lowpass": 50.0,
-        "notch": "None"
-    },
+    "EEG": {
+        "uiednet.ckpt": {
+            "sfreq": 256,
+            "highpass": 0.5,
+            "lowpass": 80.0,
+            "notch": 50.0
+        },
 
-    "transformer.ckpt":{
-        "sfreq": 200,
-        "highpass": 1.0,
-        "lowpass": 99.0,
-        "notch": 50.0
-    },
+        "transformer.ckpt": {
+            "sfreq": 200,
+            "highpass": 10.0,
+            "lowpass": 70.0,
+            "notch": 50.0
+        },
 
-    "hbiot.ckpt":{
-        "sfreq": 200,
-        "highpass": 1.0,
-        "lowpass": 99.0,
-        "notch": 50.0
-    },
-
-    "model_CNN_EEG.keras":{
-        "sfreq": 200,
-        "highpass": 0.5,
-        "lowpass": 50.0,
-        "notch": "None"
-    },
-
-    "uiednet.ckpt":{
-        "sfreq": 256,
-        "highpass": 0.5,
-        "lowpass": 80.0,
-        "notch": 50.0,
-        "montage_type": "referential"
+        "hbiot.ckpt": {
+            "sfreq": 200,
+            "highpass": 10.0,
+            "lowpass": 70.0,
+            "notch": 50.0
+        }
     }
 }

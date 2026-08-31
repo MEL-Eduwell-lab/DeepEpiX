@@ -143,9 +143,9 @@ layout = html.Div(
                             className="bi bi-person-plus-fill",
                             style={"marginRight": "10px", "fontSize": "1.2em"},
                         ),
-                        "Select M/EEG Data",
+                        "Select MEG/EEG Data",
                         dbc.Tooltip(
-                            "This dropdown lists all M/EEG data files located in the /data folder. "
+                            "This dropdown lists all MEG/EEG data files located in the /data folder. "
                             "To use a different folder, change the path in the /src/config.py file.",
                             target="data-path-dropdown",
                             autohide=True,

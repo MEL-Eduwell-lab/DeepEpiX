@@ -49,7 +49,7 @@ def register_update_graph_raw_signal():
         history_data,
         signal_version,
     ):
-        """Update M/EEG signal visualization based on time and channel selection."""
+        """Update MEG/EEG signal visualization based on time and channel selection."""
 
         if n_clicks == 0:
             return dash.no_update, dash.no_update, dash.no_update
@@ -223,7 +223,7 @@ def register_update_graph_ica(ica_result_radio_id):
         ica_result_path : str
             File system path to the .fif file containing the ICA solution.
         data_path : str
-            Path to the raw M/EEG data file.
+            Path to the raw MEG/EEG data file.
         offset_selection : float
             Vertical offset between component traces for the butterfly/stacked plot.
         color_selection : str

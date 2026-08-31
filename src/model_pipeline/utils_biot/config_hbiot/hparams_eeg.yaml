@@ -74,7 +74,7 @@ data:
     auto_generate_splits: false
     dataloader_config:
       test:
-        batch_size: 64
+        batch_size: 1
         drop_last: false
         num_workers: 4
         pin_memory: true
@@ -199,7 +199,7 @@ data:
       window_duration_s: 0.2
       window_overlap: 0.5
     dataset_name: OnlineWindowDataset
-    fold: ${fold}
+    fold: "${fold}"
     force_preprocess: false
     max_cache_gb: null
     n_folds: 5
@@ -207,8 +207,8 @@ data:
     preprocessed_dir: "${preprocess_recordings}"
     reference_coordinates: "${reference_channels}"
     root_dirs:
-    - "${DATA_DIR_VEPISET}"
     - "${DATA_DIR_LOCAL}"
+    - "${DATA_DIR_VEPISET}"
     samples_per_recording: auto
     split_mode: holdout
     splits_dir: "${cv_splits}"
@@ -276,11 +276,11 @@ model:
     heads: 4
     input_shape:
     - 20
-    - 22
+    - 18
     - 40
     inter_window_depth: 2
     linear_attention: false
-    log_dir: /pbs/home/j/jcoudray/EEG_workflow/logs/EEG_spike_detection/_fold1
+    log_dir: "${log_dir}"
     mode: raw
     overlap: 0.75
     reference_coordinates: "${reference_channels}"
