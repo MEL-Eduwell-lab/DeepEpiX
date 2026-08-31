@@ -20,8 +20,8 @@ def run_model_pipeline(
     MODEL_MODULES = {
         "model_CNN.keras": "model_pipeline.run_CNN_features_models",
         "model_features_only.keras": "model_pipeline.run_CNN_features_models",
-        "transformer.ckpt": "model_pipeline.run_hbiot",
-        "hbiot.ckpt": "model_pipeline.run_hbiot",
+        "transformer.ckpt": "model_pipeline.run_hbiot_meg",
+        "hbiot.ckpt": "model_pipeline.run_hbiot_meg",
         "model_CNN_EEG.keras": "model_pipeline.run_CNN_EEG_model",
         "uiednet.ckpt": "model_pipeline.run_uiednet",  # EEG model, backend to be added
         # "new_model": "model_pipeline.run_new_model",  # example
@@ -30,6 +30,11 @@ def run_model_pipeline(
     module_name = MODEL_MODULES.get(os.path.basename(model_name))
     if module_name is None:
         raise ValueError(f"Cannot determine backend for model '{model_name}'")
+
+    if os.path.basename(model_name) in ("hbiot.ckpt", "transformer.ckpt"):
+        modality_dir = os.path.basename(os.path.dirname(model_name)).upper()
+        if modality_dir == "EEG":
+            module_name = "model_pipeline.run_hbiot_eeg"
 
     model_module = importlib.import_module(module_name)
     test_model = getattr(model_module, "test_model")

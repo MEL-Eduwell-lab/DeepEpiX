@@ -580,47 +580,71 @@ def compute_performance(
     }
 
     # F1 vs. Threshold
-    thresholds = [round(x * 0.05, 2) for x in range(1, 21)]
-    f1_by_thresh = []
     delta = tolerance / 1000
 
     csv_path = model_csv_store.get(model_prediction) if model_csv_store else None
 
-    for th in thresholds:
-        if csv_path:
-            df = pd.read_csv(csv_path)
-            model_onsets_th = df[df["probas"] > th]["onset"].values
-        else:
-            model_onsets_th = model_onsets
+    if csv_path and "uiednet" in csv_path.lower():
+        # UIEDNET "probas" are segmentation-peak prominences, not calibrated
+        # probabilities, so a threshold sweep is not meaningful.
+        f1_thresh_fig = {
+            "data": [],
+            "layout": {
+                "title": "F1 Score vs. Threshold",
+                "xaxis": {"title": "Threshold"},
+                "yaxis": {"title": "F1 Score", "range": [0, 1]},
+                "height": 300,
+                "annotations": [
+                    {
+                        "text": "Not available for UIEDNET predictions",
+                        "xref": "paper",
+                        "yref": "paper",
+                        "x": 0.5,
+                        "y": 0.5,
+                        "showarrow": False,
+                    }
+                ],
+            },
+        }
+    else:
+        thresholds = [round(x * 0.05, 2) for x in range(1, 21)]
+        f1_by_thresh = []
 
-        tp, fp, fn, *_ = pu.compute_matches(model_onsets_th, gt_onsets, delta)
-        precision = tp / (tp + fp) if (tp + fp) > 0 else 0
-        recall = tp / (tp + fn) if (tp + fn) > 0 else 0
-        f1 = (
-            2 * precision * recall / (precision + recall)
-            if (precision + recall) > 0
-            else 0
-        )
-        f1_by_thresh.append(f1)
+        for th in thresholds:
+            if csv_path:
+                df = pd.read_csv(csv_path)
+                model_onsets_th = df[df["probas"] > th]["onset"].values
+            else:
+                model_onsets_th = model_onsets
 
-    f1_thresh_fig = {
-        "data": [
-            {
-                "x": thresholds,
-                "y": f1_by_thresh,
-                "type": "scatter",
-                "mode": "lines+markers",
-                "line": {"color": "#28A745"},
-                "name": "F1 Score",
-            }
-        ],
-        "layout": {
-            "title": "F1 Score vs. Threshold",
-            "xaxis": {"title": "Threshold"},
-            "yaxis": {"title": "F1 Score", "range": [0, 1]},
-            "height": 300,
-        },
-    }
+            tp, fp, fn, *_ = pu.compute_matches(model_onsets_th, gt_onsets, delta)
+            precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+            recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+            f1 = (
+                2 * precision * recall / (precision + recall)
+                if (precision + recall) > 0
+                else 0
+            )
+            f1_by_thresh.append(f1)
+
+        f1_thresh_fig = {
+            "data": [
+                {
+                    "x": thresholds,
+                    "y": f1_by_thresh,
+                    "type": "scatter",
+                    "mode": "lines+markers",
+                    "line": {"color": "#28A745"},
+                    "name": "F1 Score",
+                }
+            ],
+            "layout": {
+                "title": "F1 Score vs. Threshold",
+                "xaxis": {"title": "Threshold"},
+                "yaxis": {"title": "F1 Score", "range": [0, 1]},
+                "height": 300,
+            },
+        }
 
     # Return all outputs (title, tables, graphs)
     return title, conf_matrix, perf_metrics, dist_stats, f1_tol_fig, f1_thresh_fig

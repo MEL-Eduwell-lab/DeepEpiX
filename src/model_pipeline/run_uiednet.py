@@ -95,7 +95,7 @@ def predict_file(
     (``min_prominence`` from the model, ``min_distance_ms`` from the config).
 
     Returns a list of ``{"onset", "duration", "probas"}`` dicts, the format the
-    software consumes downstream (same as ``run_hbiot``).
+    software consumes downstream.
     """
     assert predictions is not None, "No predictions returned from the model."
 

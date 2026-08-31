@@ -231,6 +231,8 @@ class PredictDataset(torch.utils.data.Dataset):
             'file_name': self.file_path,
             'patient_id': self.file_path.split('/')[-2]
                                      if '/' in self.file_path else 'unknown',
+            'USE_REFERENCE_CHANNELS': self.channel_info.get('USE_REFERENCE_CHANNELS', False)
+                                     if self.channel_info else False,
             'channel_mask': self.channel_info.get('channel_mask', None)
                                      if self.channel_info else None,
             'selected_channels': self.channel_info.get('selected_channels', [])

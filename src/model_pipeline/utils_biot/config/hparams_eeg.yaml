@@ -1,0 +1,367 @@
+callbacks:
+- RichModelSummary:
+    max_depth: 4
+    show_hyperparameters: true
+  name: RichModelSummary
+- ModelCheckpoint:
+    filename: '{epoch:02d}-{val_pr_auc:.2f}'
+    mode: max
+    monitor: val_pr_auc
+    save_last: false
+    save_top_k: 1
+    verbose: true
+  name: ModelCheckpoint
+- ModelCheckpoint:
+    filename: '{epoch:02d}-{val_f1:.2f}'
+    mode: max
+    monitor: val_f1
+    save_last: false
+    save_top_k: 1
+    verbose: true
+  name: ModelCheckpoint
+- ModelCheckpoint:
+    filename: '{epoch:02d}-{val_loss:.2f}'
+    mode: min
+    monitor: val_loss
+    save_last: true
+    save_top_k: 1
+    verbose: true
+  name: ModelCheckpoint
+- MetricsEvaluationCallback:
+    contextual: false
+    segmentation: false
+    window_overlap: 0.5
+  name: MetricsEvaluationCallback
+- EarlyStopping:
+    min_delta: 1.0e-06
+    mode: max
+    monitor: val_pr_auc
+    patience: 5
+    verbose: true
+  name: EarlyStopping
+- LearningRateMonitor:
+    logging_interval: step
+  name: LearningRateMonitor
+- RichProgressBar: {}
+  name: RichProgressBar
+- GradientNormLogger:
+    clip_alpha: 0.97
+    clip_eps: 1.0e-06
+    clip_factor: 1.0
+    clip_max_norm: 1.0
+    clip_mode: zscore
+    clip_option: adaptive_scaling
+    clip_skip_update_on_spike: false
+    clip_warmup_steps: 10
+    clip_z_thresh: 2.5
+    log_every_n_steps: 50
+    log_global_norm: true
+    log_histograms: false
+    log_module_norms: false
+    log_param_norms: false
+    log_percentiles: false
+    log_sparsity: true
+    modules_to_track: null
+    norm_type: 2.0
+    use_adaptive_clipping: true
+  name: GradientNormLogger
+- CalibrationDiagnosticCallback:
+    log_every_n_epochs: 1
+    n_bins: 10
+  name: CalibrationDiagnosticCallback
+data:
+  OnTheFlyDataModule:
+    auto_generate_splits: false
+    dataloader_config:
+      test:
+        batch_size: 64
+        drop_last: false
+        num_workers: 4
+        pin_memory: true
+        shuffle: false
+        worker_init_fn: null
+      train:
+        batch_size: 64
+        drop_last: true
+        num_workers: 4
+        persistent_workers: true
+        pin_memory: true
+        prefetch_factor: 8
+        shuffle: true
+        worker_init_fn: null
+      val:
+        batch_size: 64
+        drop_last: false
+        num_workers: 4
+        persistent_workers: true
+        pin_memory: true
+        prefetch_factor: 8
+        shuffle: false
+        worker_init_fn: null
+    dataset_config:
+      annotation_rules:
+        Holdout:
+          exclude: []
+          include:
+          - ^p$
+          - ^P$
+          - ^\^p$
+          - ^\^P$
+          - ^p\^$
+          - ^P\^$
+          - "^P\xB5$"
+          - "^p\xB5$"
+          - ^p*$
+          - ^P*$
+          - ^po$
+          - ^PO$
+          - ^pp$
+          - ^PP$
+          - ^!$
+        Train_local:
+          exclude: []
+          include:
+          - ^p$
+          - ^P$
+          - ^\^p$
+          - ^\^P$
+          - ^p\^$
+          - ^P\^$
+          - "^P\xB5$"
+          - "^p\xB5$"
+          - ^p*$
+          - ^P*$
+          - ^po$
+          - ^PO$
+          - ^pp$
+          - ^PP$
+        Train_vEpi:
+          exclude: []
+          include:
+          - ^!$
+      auto_bad_channel_detection:
+        enabled: false
+        strategy: interpolate
+        threshold: 3.0
+      bipolar_montage: double_banana_bipolar
+      contextual: false
+      drop_strategy: zero
+      h_freq: 70
+      is_transformer: true
+      l_freq: 10
+      max_aug: 2
+      median_filter_temporal_window_ms: 0.0
+      montage_type: bipolar
+      n_windows: 1
+      negative_positive_ratio: 0.9
+      noise_color: red
+      noise_level: 0.1
+      normalization:
+        axis: 1
+        epsilon: 1.0e-10
+        method: robust_zscore
+        percentile: 95
+        scope: global
+      notch_freq: 50.0
+      p_apply_common: 1
+      p_apply_rare: 1
+      p_drop_per_channel: 0.1
+      p_dropout: 0.2
+      p_gaussian: 0.6
+      p_scaling: 0.2
+      p_swap: 0.1
+      patient_group_mappings:
+        Holdout: Holdout
+        Train_local: Train_local
+        Train_vEpi: Train_vEpi
+      per_channel: true
+      pipeline: pipeline1
+      refine_spike_positions: true
+      sampling_rate: 200
+      scale_range_high: 1.2
+      scale_range_low: 0.8
+      segmentation: false
+      sigma_ms: 30
+      skip_files:
+      - .*brana_Epi-001_20100420_05.*
+      - .*P283/p1.*
+      - .*P30/p4.*
+      special_case_handling:
+        Liogier_AllDataset1200Hz:
+        - MRO22-2805
+      spike_aware_training: true
+      spike_quality_filtering:
+        enabled: false
+        epoch_half_duration_s: 0.05
+        min_active_channels: 5
+        threshold_zscore: 2.5
+      swap_prob: 0.1
+      use_missing_references: true
+      window_duration_s: 0.2
+      window_overlap: 0.5
+    dataset_name: OnlineWindowDataset
+    fold: '3'
+    force_preprocess: false
+    max_cache_gb: null
+    n_folds: 5
+    prepare_data_per_node: false
+    preprocessed_dir: /home/labmember/Desktop/workspace_GIT/EEG_workflow/local_dataset/preprocessed_recordings
+    reference_coordinates: /home/labmember/Desktop/workspace_GIT/EEG_workflow/local_dataset/reference.pkl
+    root_dirs:
+    - /home/labmember/Desktop/workspace_GIT/EEG_workflow/vepiset-dataset/data
+    - /home/labmember/Desktop/workspace_GIT/EEG_workflow/local_dataset
+    samples_per_recording: auto
+    split_mode: holdout
+    splits_dir: /home/labmember/Desktop/workspace_GIT/EEG_workflow/HBIOT_paper/cv_splits
+    use_missing_references: true
+  name: OnTheFlyDataModule
+error_handling:
+  include_traceback: true
+  log_exceptions: true
+  max_traceback_depth: 10
+evaluation:
+  compute_relaxed: true
+  default_threshold: 0.5
+  temperature_scaling: false
+  test_set_present: true
+  test_threshold_optimization: false
+  threshold_optimization: true
+experiment:
+  checkpoint_path: null
+  name: EEG_spike_detection
+  seed: 42
+  version: 0.0.9_fold3
+logging:
+  log_dir: /home/labmember/Desktop/workspace_GIT/EEG_workflow/logs
+  log_level: INFO
+  pipeline_log: /home/labmember/Desktop/workspace_GIT/EEG_workflow/logs/pipeline.log
+  separator:
+    char: '='
+    length: 50
+loss:
+  CBFocalLoss:
+    beta: 0.9999
+    gamma: 1.5
+  FocalLoss:
+    alpha: 0.25
+    gamma: 2.0
+    smoothing: false
+  name: FocalLoss
+model:
+  BIOT:
+    attn_dropout: 0.1
+    classifier_dropout: 0.1
+    contextual: false
+    depth: 3
+    emb_size: 128
+    ff_dropout: 0.1
+    heads: 4
+    input_shape:
+    - 1
+    - 18
+    - 40
+    linear_attention: false
+    log_dir: /home/labmember/Desktop/workspace_GIT/EEG_workflow/logs/EEG_spike_detection/0.0.9_fold3
+    mode: spec
+    n_selected_tokens: 0
+    overlap: 0.75
+    selection_temperature: 1.0
+    sequential_processing: false
+    sfreq: 200.0
+    token_size: 10
+    use_cls_token: true
+    use_max_pool: false
+    use_mean_pool: 0
+    use_min_pool: false
+  BIOTHierarchical:
+    classifier:
+      dropout: 0.1
+      num_heads: 8
+    contextual: true
+    emb_size: 64
+    heads: 4
+    inter_window_depth: 2
+    linear_attention: false
+    mode: raw
+    overlap: 0.75
+    reference_coordinates: /home/labmember/Desktop/workspace_GIT/EEG_workflow/local_dataset/reference.pkl
+    sequential_processing: false
+    token_selection:
+      n_selected_tokens: 0
+      selection_temperature: 1.0
+      use_cls_token: true
+      use_max_pool: false
+      use_mean_pool: 0
+      use_min_pool: false
+    token_size: 10
+    transformer:
+      attn_dropout: 0.2
+      ff_dropout: 0.3
+    window_encoder_depth: 4
+  EEGNet:
+    D: 2
+    F1: 7
+    depthwise_kernel_length: 4
+    drop_prob: 0.5
+    kernel_length: 8
+    sfreq: 200.0
+    window_duration_s: 0.2
+  UIEDNET:
+    dropout: 0.3
+    gru_hidden: 256
+    gru_layers: 2
+    tf_emb_size: 256
+    tf_heads: 4
+    tf_layers: 1
+    use_segmentation: true
+    window_classification: true
+  name: BIOT
+optimizer:
+  AdamW:
+    lr: 0.0006292387327212928
+    weight_decay: 0.02
+  evaluate_gpu_cpu: false
+  name: AdamW
+scheduler:
+  CosineAnnealingLR:
+    T_max: 50
+  CosineAnnealingWarmRestarts:
+    T_0: 2
+    T_mult: 1
+    eta_min: 1.0e-05
+  OneCycleLR:
+    anneal_strategy: cos
+    div_factor: 100.0
+    final_div_factor: 10000.0
+    max_lr: 0.001
+    pct_start: 0.3
+    three_phase: false
+  ReduceLROnPlateau:
+    factor: 0.5
+    min_lr: 1.0e-07
+    mode: max
+    monitor: val_pr_auc
+    patience: 3
+  StepLR:
+    gamma: 0.1
+    step_size: 10
+  name: ReduceLROnPlateau
+  warmup:
+    enabled: false
+    warmup_end_lr: 0.0003
+    warmup_epochs: 5
+    warmup_start_lr: 1.0e-06
+trainer:
+  accelerator: auto
+  devices: auto
+  enable_model_summary: true
+  enable_progress_bar: true
+  gradient_clip_val: null
+  limit_test_batches: 1.0
+  limit_train_batches: 1.0
+  limit_val_batches: 1.0
+  log_every_n_steps: 5
+  logger: true
+  max_epochs: 30
+  precision: bf16-mixed
+  profiler: null

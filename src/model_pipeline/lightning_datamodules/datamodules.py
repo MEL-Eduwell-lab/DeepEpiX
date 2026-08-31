@@ -13,6 +13,25 @@ from model_pipeline.lightning_datamodules.predict_dataset_registry import (
 
 logger = logging.getLogger(__name__)
 
+
+def infer_n_patches_per_channel(checkpoint_path: str) -> int | None:
+    """Read the trained ``positional_embedding`` length from a BIOT checkpoint.
+
+    Some checkpoints were trained with an earlier patch-count formula, so the
+    value recomputed from ``token_size`` / ``overlap`` / window length no longer
+    matches the stored weights. Reading the length straight from the checkpoint
+    keeps every model (EEG/MEG, hierarchical or not) loadable.
+    """
+    state_dict = torch.load(checkpoint_path, map_location="cpu", weights_only=False)["state_dict"]
+    for key in (
+        "model.window_encoder.positional_embedding",
+        "model.biot.positional_embedding",
+    ):
+        if key in state_dict:
+            return state_dict[key].shape[0]
+    return None
+
+
 class PredictionDataModule(L.LightningDataModule):
     """Lightning DataModule for prediction on a single MEG or EEG file.
 
@@ -175,6 +194,9 @@ class SPikeDetector(L.LightningModule):
         self.log_dir = log_dir
         self.input_shape = input_shape
         config["model"][config["model"]["name"]]["input_shape"] = list(input_shape)
+        n_patches_per_channel = _kwargs.get("n_patches_per_channel")
+        if n_patches_per_channel is not None:
+            config["model"][config["model"]["name"]]["n_patches_per_channel"] = n_patches_per_channel
         if log_dir is not None:
             config["model"][config["model"]["name"]]["log_dir"] = log_dir
             self.save_hyperparameters(config)
@@ -228,6 +250,18 @@ class SPikeDetector(L.LightningModule):
     def on_load_checkpoint(self, checkpoint: dict[str, Any]) -> None:
         """Restore threshold and temperature from checkpoint if available."""
         super().on_load_checkpoint(checkpoint)
+        # Legacy checkpoints trained before ClassificationHead always included an
+        # nn.Dropout layer used indices 1/3 (no dropout) instead of 2/5 (with dropout).
+        # Remap those keys so strict loading still works regardless of the dropout config.
+        state_dict = checkpoint.get("state_dict", {})
+        legacy_to_current = {
+            ".classifier.clshead.1.": ".classifier.clshead.2.",
+            ".classifier.clshead.3.": ".classifier.clshead.5.",
+        }
+        for legacy, current in legacy_to_current.items():
+            for key in list(state_dict.keys()):
+                if legacy in key:
+                    state_dict[key.replace(legacy, current)] = state_dict.pop(key)
         if "hyper_parameters" in checkpoint:
             if "threshold" in checkpoint["hyper_parameters"]:
                 self.clf_threshold = checkpoint["hyper_parameters"]["threshold"]

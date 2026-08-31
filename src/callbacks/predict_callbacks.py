@@ -450,9 +450,18 @@ def update_prediction_table(style, threshold, prediction_csv_path):
             dark=False,
         )
 
+        # UIEDNET "probas" are segmentation-peak prominences, not calibrated
+        # probabilities, so the probability histogram is not meaningful.
+        if "uiednet" in os.path.basename(prediction_csv_path[0]).lower():
+            distribution = html.P(
+                "Probability distribution is not available for UIEDNET predictions."
+            )
+        else:
+            distribution = au.build_prediction_distribution_statistics(df, threshold)
+
         return (
             au.build_table_prediction_statistics(df_filtered, len(df)),
-            au.build_prediction_distribution_statistics(df, threshold),
+            distribution,
             table,
         )
     except Exception as e:
