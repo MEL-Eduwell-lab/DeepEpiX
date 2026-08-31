@@ -559,3 +559,18 @@ def register_smoothgrad_threshold():
         if sensitivity_analysis:
             return {"marginBottom": "20px", "display": "block"}
         return {"marginBottom": "20px", "display": "none"}
+
+    @callback(
+        Output("sensitivity-analysis-div", "style"),
+        Input("model-dropdown", "value"),
+    )
+    def toggle_sensitivity_analysis(model_path):
+        # SmoothGrad is only available for the MEG CNN model.
+        is_meg_cnn = (
+            bool(model_path)
+            and os.path.basename(model_path) == "model_CNN.keras"
+            and os.path.basename(os.path.dirname(model_path)) == "MEG"
+        )
+        if is_meg_cnn:
+            return {"marginBottom": "20px", "display": "block"}
+        return {"marginBottom": "20px", "display": "none"}

@@ -118,6 +118,7 @@ def create_predict():
                             placement="left",
                         ),
                     ],
+                    id="sensitivity-analysis-div",
                     style={"marginBottom": "20px"},
                 ),
                 html.Div(

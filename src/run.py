@@ -14,7 +14,7 @@ if __name__ == "__main__":
 app = Dash(
     __name__,
     use_pages=True,
-    external_stylesheets=[dbc.icons.BOOTSTRAP, dbc.themes.BOOTSTRAP],
+    external_stylesheets=[dbc.themes.BOOTSTRAP],  # bootstrap-icons served locally from assets/
 )
 
 app.layout = html.Div(
