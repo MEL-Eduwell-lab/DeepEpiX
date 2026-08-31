@@ -95,8 +95,13 @@ def get_valid_paths(path) -> list:
         if path.name.endswith(".ds") or (path / "hs_file").exists():
             valid_paths.append(path)
         else:
-            # Recurse into subdirectories
-            for sub in path.iterdir():
+            # Recurse into subdirectories. Skip directories we cannot read
+            # (permission-restricted or special folders, common on macOS).
+            try:
+                subs = list(path.iterdir())
+            except (PermissionError, OSError):
+                subs = []
+            for sub in subs:
                 valid_paths.extend(get_valid_paths(sub))
 
     return valid_paths
