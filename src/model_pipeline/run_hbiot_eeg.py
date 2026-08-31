@@ -98,9 +98,6 @@ def process_predictions(predictions, adjust_onset):
         probs = batch_predictions["probs"]
         mask = batch_predictions.get("mask", None)
 
-        print(probs.shape)
-
-
         # Handle different tensor shapes
         if probs.dim() == 1:
             # Single sample case: reshape to [1, n_windows]
