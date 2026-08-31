@@ -15,7 +15,6 @@ from typing import Dict, Optional, Tuple
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 class ConvBlock1D(nn.Module):
     """
@@ -97,7 +96,7 @@ class TransformerBlock(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        key_padding_mask: Optional[torch.Tensor] = None,
+        key_padding_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """
         Args:
@@ -189,10 +188,10 @@ class TemporalEncoder(nn.Module):
     
     def forward(
         self, x: torch.Tensor,
-    ) -> Tuple[
+    ) -> tuple[
         torch.Tensor,
         torch.Tensor,
-        Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+        tuple[torch.Tensor, torch.Tensor, torch.Tensor],
     ]:
         B, C, T = x.shape
         h = x.reshape(B * C, 1, T)             # (B·C, 1,   T)
@@ -263,7 +262,7 @@ class SpatialEncoder(nn.Module):
         self.norm = nn.LayerNorm(d_model)
 
     def forward(self, cls_tokens: torch.Tensor,
-                channel_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+                channel_mask: torch.Tensor | None = None) -> torch.Tensor:
         """
         Args:
             cls_tokens   : (B, C, 512) — one CLS token per channel.
@@ -272,7 +271,7 @@ class SpatialEncoder(nn.Module):
         Returns:
             (B, C, 512) — spatially enriched per-channel representations.
         """
-        B, C, _ = cls_tokens.shape
+        _, C, _ = cls_tokens.shape
 
         x = cls_tokens + self.pos_embed[:, :C, :]
 
@@ -311,8 +310,8 @@ class TemporalDecoder(nn.Module):
     def forward(
         self,
         bottleneck: torch.Tensor,
-        skips: Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
-        clf_confidence: Optional[torch.Tensor] = None,
+        skips: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+        clf_confidence: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """
         Args:
@@ -447,8 +446,8 @@ class UIEDNET(nn.Module):
         return collapsed
 
     def forward(self, x: torch.Tensor,
-                channel_mask: Optional[torch.Tensor] = None,
-                **kwargs) -> Dict[str, torch.Tensor]:
+                channel_mask: torch.Tensor | None = None,
+                **kwargs) -> dict[str, torch.Tensor]:
         if channel_mask is None:
             channel_mask = self._auto_channel_mask(x)   # (B, C)
 

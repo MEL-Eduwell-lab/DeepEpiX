@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from mne.io.base import BaseRaw
 from scipy.ndimage import median_filter
 import torch # type: ignore
@@ -25,9 +25,9 @@ class PredictDataset(torch.utils.data.Dataset):
         self,
         signal_path: str,
         mne_info_path: str,
-        dataset_config: Dict[str, Any],
+        dataset_config: dict[str, Any],
         n_channels: int = 275,
-        reference_channels_path: Optional[str] = None,
+        reference_channels_path: str | None = None,
     ):
         """Initialize prediction dataset with sequential chunk extraction.
 
@@ -92,7 +92,7 @@ class PredictDataset(torch.utils.data.Dataset):
         """Return number of chunks."""
         return self.n_chunks
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, Dict[str, Any]]:
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, dict[str, Any]]:
         """Extract a chunk sequentially for prediction.
 
         Args:
@@ -163,11 +163,11 @@ class PredictDataset(torch.utils.data.Dataset):
 def load_and_process_meg_data(
     signal_cache_path: str,
     mne_info_cache_path: str,
-    config: Dict[str, Any],
-    good_channels: Optional[List[str]] = None,
+    config: dict[str, Any],
+    good_channels: list[str] | None = None,
     n_channels: int = 275,
     close_raw: bool = True
-) -> Tuple[BaseRaw, np.ndarray, Dict[str, Any]]:
+) -> tuple[BaseRaw, np.ndarray, dict[str, Any]]:
     """Load and process MEG data for prediction.
     
     Args:
@@ -185,7 +185,7 @@ def load_and_process_meg_data(
     """
     USE_REFERENCE_CHANNELS = False
     try:
-        raw, metadata = load_raw_from_parquet(signal_cache_path, mne_info_cache_path)
+        raw, _ = load_raw_from_parquet(signal_cache_path, mne_info_cache_path)
 
         if raw.info['sfreq'] != config['sampling_rate']:
             raw.resample(sfreq=config['sampling_rate'])
@@ -283,7 +283,7 @@ def select_channels(raw: BaseRaw, good_channels: list[str]) -> tuple[BaseRaw, di
     return raw, channel_info
 
 
-def normalize_data(data: np.ndarray, norm_config: Dict, eps: Optional[float] = None) -> np.ndarray:
+def normalize_data(data: np.ndarray, norm_config: dict, eps: float | None = None) -> np.ndarray:
     """Normalize data using specified method."""
     if eps is None:
         eps = norm_config.get('epsilon', 1e-20)

@@ -128,7 +128,7 @@ def register_save_modifications():
                     df = pd.DataFrame(rows)
 
                     csv_name = (csv_filename or "annotations").strip() or "annotations"
-                    if is_fif or is_ds or is_dir:
+                    if is_fif or is_ds or is_dir or os.path.isfile(data_path):
                         fname = os.path.join(os.path.dirname(data_path), f"{csv_name}.csv")
                     else:
                         return "⚠️ Error: Unsupported folder path format."
@@ -149,7 +149,10 @@ def register_save_modifications():
                     elif is_dir:
                         return "This action is impossible. Please select FIF saving format."
 
-                if format == "fif" or (format == "original" and is_fif):
+                # Save as a new .fif for every supported input format. With
+                # "original", the ".ds" and 4D folder cases have already
+                # returned above, so this only runs for single-file inputs.
+                if format == "fif" or format == "original":
                     raw = dpu.read_raw(data_path, verbose=False, preload=True)
 
                     # Filter annotations
@@ -169,16 +172,22 @@ def register_save_modifications():
                     raw.set_annotations(annot)
                     raw.info["bads"] = bad_channels
 
-                    # Determine save path
-                    if is_fif:
-                        fname = data_path
-                    elif is_ds:
-                        fname = data_path.rstrip(".ds") + ".fif"
+                    # Determine save path: always a new .fif with a dated suffix
+                    # next to the source, so the original file is never overwritten.
+                    date_suffix = datetime.now().strftime("%d.%m.%H.%M")
+                    if is_ds:
+                        stem = os.path.basename(data_path)[: -len(".ds")]
+                        fname = os.path.join(
+                            os.path.dirname(data_path), f"{stem}_{date_suffix}.fif"
+                        )
                     elif is_dir:
                         fname = os.path.join(
                             os.path.dirname(data_path),
-                            os.path.basename(data_path) + ".fif",
+                            f"{os.path.basename(data_path)}_{date_suffix}.fif",
                         )
+                    elif os.path.isfile(data_path):
+                        stem = os.path.splitext(data_path)[0]
+                        fname = f"{stem}_{date_suffix}.fif"
                     else:
                         return "⚠️ Error: Unsupported folder path format."
 
