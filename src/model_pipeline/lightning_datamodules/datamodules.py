@@ -265,7 +265,7 @@ class SPikeDetector(L.LightningModule):
         if "hyper_parameters" in checkpoint:
             if "threshold" in checkpoint["hyper_parameters"]:
                 self.clf_threshold = checkpoint["hyper_parameters"]["threshold"]
-                print(f"Restored threshold from checkpoint: {self.clf_threshold:.4f}")
+                logger.info(f"Restored threshold from checkpoint: {self.clf_threshold:.4f}")
             if "clf_threshold" in checkpoint["hyper_parameters"]:
                 self.clf_threshold = checkpoint["hyper_parameters"]["clf_threshold"]
                 logger.info(f"Restored threshold from checkpoint: {self.clf_threshold:.4f}")
@@ -282,7 +282,7 @@ class SPikeDetector(L.LightningModule):
                     self.temperature.data = torch.tensor(
                         [temp_value], device=self.temperature.device
                     )
-                print(
+                logger.info(
                     f"Restored temperature from checkpoint: {self.temperature.item():.4f}"
                 )
 
