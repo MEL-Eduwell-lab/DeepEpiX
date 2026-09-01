@@ -1,0 +1,312 @@
+callbacks:
+- RichModelSummary:
+    max_depth: 4
+    show_hyperparameters: true
+  name: RichModelSummary
+- ModelCheckpoint:
+    filename: '{epoch:02d}-{val_ied_f1:.2f}'
+    mode: max
+    monitor: val_ied_f1
+    save_last: false
+    save_top_k: 1
+    verbose: true
+  name: ModelCheckpoint
+- ModelCheckpoint:
+    filename: '{epoch:02d}-{val_window_f1:.2f}'
+    mode: max
+    monitor: val_window_f1
+    save_last: false
+    save_top_k: 1
+    verbose: true
+  name: ModelCheckpoint
+- MetricsEvaluationCallback:
+    contextual: false
+    frequency_sampling: 256
+    min_distance_ms: 100
+    peak_match_tolerance_ms: 100
+    positive_windows_only: true
+    segmentation: true
+    tolerance_grid_ms:
+    - 50
+    - 100
+    - 200
+    - 300
+    window_overlap: 0.5
+  name: MetricsEvaluationCallback
+- EarlyStopping:
+    min_delta: 0.01
+    mode: max
+    monitor: val_ied_f1
+    patience: 4
+    verbose: true
+  name: EarlyStopping
+- LearningRateMonitor:
+    logging_interval: step
+  name: LearningRateMonitor
+- RichProgressBar: {}
+  name: RichProgressBar
+- GradientNormLogger:
+    clip_alpha: 0.97
+    clip_eps: 1.0e-06
+    clip_factor: 1.0
+    clip_max_norm: 1.0
+    clip_mode: zscore
+    clip_option: adaptive_scaling
+    clip_skip_update_on_spike: false
+    clip_warmup_steps: 10
+    clip_z_thresh: 2.5
+    log_every_n_steps: 50
+    log_global_norm: true
+    log_histograms: false
+    log_module_norms: false
+    log_param_norms: false
+    log_percentiles: false
+    log_sparsity: true
+    modules_to_track: null
+    norm_type: 2.0
+    use_adaptive_clipping: true
+  name: GradientNormLogger
+- CalibrationDiagnosticCallback:
+    log_every_n_epochs: 1
+    n_bins: 10
+  name: CalibrationDiagnosticCallback
+data:
+  OnTheFlyDataModule:
+    auto_generate_splits: false
+    dataloader_config:
+      test:
+        batch_size: 1
+        drop_last: false
+        num_workers: 6
+        pin_memory: true
+        shuffle: false
+        worker_init_fn: null
+      train:
+        batch_size: 64
+        drop_last: true
+        num_workers: 6
+        persistent_workers: true
+        pin_memory: true
+        prefetch_factor: 2
+        shuffle: true
+        worker_init_fn: null
+      val:
+        batch_size: 128
+        drop_last: false
+        num_workers: 6
+        persistent_workers: true
+        pin_memory: true
+        prefetch_factor: 2
+        shuffle: false
+        worker_init_fn: null
+    dataset_config:
+      annotation_rules:
+        Holdout:
+          exclude: []
+          include:
+          - ^p$
+          - ^P$
+          - ^\^p$
+          - ^\^P$
+          - ^p\^$
+          - ^P\^$
+          - "^P\xB5$"
+          - "^p\xB5$"
+          - ^p*$
+          - ^P*$
+          - ^po$
+          - ^PO$
+          - ^pp$
+          - ^PP$
+          - ^!$
+        Train_local:
+          exclude: []
+          include:
+          - ^p$
+          - ^P$
+          - ^\^p$
+          - ^\^P$
+          - ^p\^$
+          - ^P\^$
+          - "^P\xB5$"
+          - "^p\xB5$"
+          - ^p*$
+          - ^P*$
+          - ^po$
+          - ^PO$
+          - ^pp$
+          - ^PP$
+        Train_vEpi:
+          exclude: []
+          include:
+          - ^!$
+      auto_bad_channel_detection:
+        enabled: false
+        strategy: interpolate
+        threshold: 3.0
+      contextual: false
+      drop_strategy: zero
+      h_freq: 80
+      is_transformer: false
+      l_freq: 0.5
+      max_aug: 2
+      median_filter_temporal_window_ms: 0.0
+      montage_type: referential
+      n_windows: 1
+      negative_positive_ratio: 0.9
+      noise_color: red
+      noise_level: 0.1
+      normalization:
+        axis: 1
+        epsilon: 1.0e-10
+        method: robust_zscore
+        percentile: 95
+        scope: global
+      notch_freq: 50.0
+      p_apply_common: 0.98
+      p_apply_rare: 1
+      p_drop_per_channel: 0.05
+      p_dropout: 0.1
+      p_gaussian: 0.6
+      p_scaling: 0.2
+      p_swap: 0.2
+      patient_group_mappings:
+        Holdout: Holdout
+        Train_local: Train_local
+        Train_vEpi: Train_vEpi
+      per_channel: true
+      pipeline: pipeline1
+      refine_spike_positions: true
+      sampling_rate: 256
+      scale_range_high: 1.2
+      scale_range_low: 0.8
+      segmentation: true
+      sigma_ms: 30
+      skip_files:
+      - .*brana_Epi-001_20100420_05.*
+      - .*P283/p1.*
+      - .*P30/p4.*
+      special_case_handling:
+        Liogier_AllDataset1200Hz:
+        - MRO22-2805
+        - MRO23-2805
+        - MRO24-2805
+      spike_aware_training: true
+      spike_quality_filtering:
+        enabled: false
+        epoch_half_duration_s: 0.05
+        min_active_channels: 5
+        threshold_zscore: 2.5
+      swap_prob: 0.1
+      use_missing_references: false
+      window_duration_s: 3
+      window_overlap: 0.5
+    dataset_name: OnlineWindowDataset
+    fold: "${fold}"
+    force_preprocess: false
+    max_cache_gb: null
+    n_folds: 5
+    prepare_data_per_node: false
+    preprocessed_dir: "${preprocess_recordings}"
+    reference_coordinates: "${reference_channels}"
+    root_dirs:
+    - "${DATA_DIR_LOCAL}"
+    - "${DATA_DIR_VEPISET}"
+    samples_per_recording: auto
+    split_mode: holdout
+    splits_dir: "${cv_splits}"
+    use_missing_references: false
+  name: OnTheFlyDataModule
+error_handling:
+  include_traceback: true
+  log_exceptions: true
+  max_traceback_depth: 10
+evaluation:
+  compute_relaxed: false
+  default_min_prominence: 0.7
+  default_threshold: 0.5
+  temperature_scaling: false
+  test_set_present: false
+  test_threshold_optimization: false
+  threshold_optimization: false
+experiment:
+  checkpoint_path: null
+  name: "${experiment_name}"
+  seed: 42
+  version: "${version}"
+logging:
+  log_dir: "${log_dir}"
+  log_level: INFO
+  pipeline_log: "${log_dir}/pipeline.log"
+  separator:
+    char: '='
+    length: 50
+loss:
+  UIEDLoss:
+    focal_alpha: 0.25
+    focal_gamma: 2.0
+    seg_alpha: 0.5
+    seg_clf_alpha: 0.3
+  name: UIEDLoss
+model:
+  UIEDNET:
+    dropout: 0.1
+    gru_hidden: 128
+    gru_layers: 2
+    input_shape:
+    - 1
+    - 19
+    - 768
+    log_dir: "${log_dir}"
+    tf_emb_size: 256
+    tf_heads: 4
+    tf_layers: 1
+    use_segmentation: true
+    window_classification: true
+  name: UIEDNET
+optimizer:
+  AdamW:
+    lr: 0.0002912074332600774
+    weight_decay: 0.02
+  evaluate_gpu_cpu: false
+  name: AdamW
+scheduler:
+  CosineAnnealingLR:
+    T_max: 50
+  CosineAnnealingWarmRestarts:
+    T_0: 2
+    T_mult: 1
+    eta_min: 1.0e-05
+  OneCycleLR:
+    anneal_strategy: cos
+    div_factor: 100.0
+    final_div_factor: 10000.0
+    max_lr: 0.001
+    pct_start: 0.3
+    three_phase: false
+  ReduceLROnPlateau:
+    factor: 0.5
+    min_lr: 1.0e-07
+    mode: max
+    monitor: val_ied_f1
+    patience: 3
+  StepLR:
+    gamma: 0.1
+    step_size: 10
+  name: ReduceLROnPlateau
+  warmup:
+    enabled: false
+    warmup_end_lr: 0.0003
+    warmup_epochs: 5
+    warmup_start_lr: 1.0e-06
+trainer:
+  accelerator: gpu
+  devices: auto
+  enable_model_summary: true
+  enable_progress_bar: true
+  gradient_clip_val: null
+  log_every_n_steps: 5
+  logger: true
+  max_epochs: 20
+  precision: bf16-mixed
+  profiler: null

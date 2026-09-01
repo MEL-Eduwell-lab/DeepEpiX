@@ -39,7 +39,7 @@ def register_display_topomap_on_click():
         click_info : dict
             Data from the Plotly click event containing coordinates (x is time).
         data_path : str
-            Path to the raw M/EEG data file.
+            Path to the raw MEG/EEG data file.
         is_button_active : bool
             State of the topomap toggle button (False usually indicates 'active' outline).
         page_selection : int or str
@@ -70,8 +70,12 @@ def register_display_topomap_on_click():
                 load_start_time = time.time()
                 raw = dpu.read_raw(data_path, preload=False, verbose=False)
                 time_range = chunk_limits[int(page_selection)]
+                # Topomaps are computed on the original scalp channels, not
+                # the bipolar montage used for display (a bipolar channel
+                # has no single meaningful scalp position).
+                scalp_freq_data = pu.get_original_signal_freq_data(freq_data)
                 raw_ddf, _ = pu.get_preprocessed_dataframe_dask(
-                    data_path, freq_data, time_range[0], time_range[1], channel_store
+                    data_path, scalp_freq_data, time_range[0], time_range[1], channel_store
                 )
                 print(
                     f"Time to load raw and preprocessed data: {time.time() - load_start_time:.4f} seconds"

@@ -98,10 +98,19 @@ def generate_graph_time_channel(
     color_selection,
     xaxis_range,
     channels_region,
+    display_channels_region,
     filter={},
     excluded_ica_components=None,
 ):
-    """Handles the preprocessing and figure generation for the M/EEG signal visualization."""
+    """
+    Handles the preprocessing and figure generation for the MEG/EEG signal
+    visualization.
+
+    `channels_region` is the scalp-space channel grouping, used to
+    reprocess/reorder the raw signal on a cache miss. `display_channels_region`
+    matches the channels actually shown (e.g. bipolar-derived ones) and
+    drives the "rainbow" per-group coloring of traces.
+    """
     import time
 
     # Get recording from cache
@@ -154,13 +163,13 @@ def generate_graph_time_channel(
     if color_selection == "rainbow":
         region_to_color = {
             region: REGION_COLOR_PALETTE[i % len(REGION_COLOR_PALETTE)]
-            for i, region in enumerate(channels_region.keys())
+            for i, region in enumerate(display_channels_region.keys())
         }
 
         # Build channel-to-color mapping
         channel_to_color = {
             channel: region_to_color[region]
-            for region, channels in channels_region.items()
+            for region, channels in display_channels_region.items()
             for channel in channels
         }
 
@@ -248,7 +257,7 @@ def generate_graph_time_ica(
     time_range : tuple of float
         The (start, end) timestamps in seconds for the data chunk to load.
     data_path : str
-        Path to the original raw M/EEG data file.
+        Path to the original raw MEG/EEG data file.
     ica_result_path : str
         Path to the pre-computed MNE ICA solution file (.fif).
     color_selection : {'rainbow', 'blue', 'white'}

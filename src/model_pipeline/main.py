@@ -15,14 +15,14 @@ def run_model_pipeline(
     mne_info_cache_path,
     signal_name,
 ):
-    
+
     # === Determine module based on model_name ===
     MODEL_MODULES = {
         "model_CNN.keras": "model_pipeline.run_CNN_features_models",
         "model_features_only.keras": "model_pipeline.run_CNN_features_models",
-        "transformer.ckpt": "model_pipeline.run_hbiot",
-        "hbiot.ckpt": "model_pipeline.run_hbiot",
-        "model_CNN_EEG.keras": "model_pipeline.run_CNN_EEG_model",
+        "transformer.ckpt": "model_pipeline.run_hbiot_meg",
+        "hbiot.ckpt": "model_pipeline.run_hbiot_meg",
+        "uiednet.ckpt": "model_pipeline.run_uiednet",
         # "new_model": "model_pipeline.run_new_model",  # example
     }
 
@@ -30,11 +30,15 @@ def run_model_pipeline(
     if module_name is None:
         raise ValueError(f"Cannot determine backend for model '{model_name}'")
 
+    if os.path.basename(model_name) in ("hbiot.ckpt", "transformer.ckpt"):
+        modality_dir = os.path.basename(os.path.dirname(model_name)).upper()
+        if modality_dir == "EEG":
+            module_name = "model_pipeline.run_hbiot_eeg"
+
     model_module = importlib.import_module(module_name)
     test_model = getattr(model_module, "test_model")
 
-    # === Run the model ===
-    return test_model(
+    kwargs = dict(
         model_name=model_name,
         output_path=output_path,
         signal_cache_path=signal_cache_path,
@@ -43,6 +47,9 @@ def run_model_pipeline(
         channel_groups=channel_groups,
         signal_name=signal_name,
     )
+
+    # === Run the model ===
+    return test_model(**kwargs)
 
 
 if __name__ == "__main__":
@@ -55,7 +62,8 @@ if __name__ == "__main__":
     signal_cache_path = sys.argv[7]
     mne_info_cache_path = sys.argv[8]
     signal_name = sys.argv[9]
-    
+
+
     if not os.path.exists(signal_cache_path):
         raise FileNotFoundError(f"Singal file not found: {signal_cache_path}")
     if not os.path.exists(mne_info_cache_path):

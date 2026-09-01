@@ -38,3 +38,4 @@ src/cache-directory/*
 
 # Style formatting
 .flake8
+.claude/

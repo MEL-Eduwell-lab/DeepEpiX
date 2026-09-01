@@ -42,7 +42,7 @@ def register_compute_ica():
         components_dir_store,
     ):
         """
-        Decompose M/EEG signals into independent components using ICA.
+        Decompose MEG/EEG signals into independent components using ICA.
 
         This function validates input parameters, executes the ICA decomposition 
         (or retrieves it from cache), save computed ICA in cache, and triggers the Dask-based generation
@@ -177,7 +177,7 @@ def register_apply_ica_exclusion():
             Store containing the session's processing history and current 
             excluded components.
         data_path : str
-            Path to the raw M/EEG data file.
+            Path to the raw MEG/EEG data file.
         chunk_limits : list of tuples
             Time windows (start, end) used for partitioned processing.
         ica_result_path : str
@@ -219,7 +219,12 @@ def register_apply_ica_exclusion():
         already_excluded = set(ica_entry.get("excluded_components", []))
         all_excluded = sorted(already_excluded | set(selected))
 
-        prep_raw = pu.sort_filter_resample(data_path, freq_data, channel_store)
+        # ICA is fit/applied on the original scalp channels (see
+        # run_ica_processing), so build `prep_raw` the same way here,
+        # regardless of the bipolar display montage; get_reconstructed_signal_dask
+        # re-derives the bipolar montage on the cleaned signal when needed.
+        scalp_freq_data = pu.get_original_signal_freq_data(freq_data)
+        prep_raw = pu.sort_filter_resample(data_path, scalp_freq_data, channel_store)
         for start_time, end_time in chunk_limits:
 
             pu.get_reconstructed_signal_dask(

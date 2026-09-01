@@ -14,7 +14,7 @@ if __name__ == "__main__":
 app = Dash(
     __name__,
     use_pages=True,
-    external_stylesheets=[dbc.icons.BOOTSTRAP, dbc.themes.BOOTSTRAP],
+    external_stylesheets=[dbc.themes.BOOTSTRAP],  # bootstrap-icons served locally from assets/
 )
 
 app.layout = html.Div(
@@ -27,12 +27,14 @@ app.layout = html.Div(
         dcc.Store(id="frequency-store", storage_type="session"),
         dcc.Store(id="annotation-store", data=[], storage_type="session"),
         dcc.Store(id="channel-store", data={}, storage_type="session"),
+        dcc.Store(id="display-channel-store", data={}, storage_type="session"),
         dcc.Store(id="montage-store", data={}, storage_type="local"),
         dcc.Store(id="history-store", data={}, storage_type="session"),
         dcc.Store(id="model-probabilities-store", data={}, storage_type="session"),
         dcc.Store(id="sensitivity-analysis-store", data={}, storage_type="session"),
         dcc.Store(id="ica-store", data=[], storage_type="session"),
         dcc.Store(id="raw-modality", storage_type="session"),
+        dcc.Store(id="pending-has-scalp-eeg", storage_type="session"),
         dcc.Store(id="ica-components-dir-store", storage_type="session"),
         dcc.Store(id="model-csv-store", data={}, storage_type="session"),
         html.Div(

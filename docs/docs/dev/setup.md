@@ -18,13 +18,19 @@ deactivate
 ```bash
 python3 -m venv .tfenv
 source .tfenv/bin/activate
-python3 -m pip install -r requirements/requirements-tfenv.txt
+# For Non Macos Users
+python3 -m pip install -r requirements/requirements-tfenv-cuda.txt
+# For Macos Users
+python3 -m pip install -r requirements/requirements-tfenv-macos.txt
 deactivate
 ```
 ```bash
 python3 -m venv .torchenv
 source .torchenv/bin/activate
-python3 -m pip install -r requirements/requirements-torchenv.txt
+# For Non Macos Users
+python3 -m pip install -r requirements/requirements-torchenv-cuda.txt
+# For Macos Users
+python3 -m pip install -r requirements/requirements-torchenv-macos.txt
 deactivate
 ```
 4. **Activate your Dash Environment and Start Running the App:**
@@ -37,7 +43,7 @@ Then, open the app in your web browser at:
 
 🥳 You can start editing code while visualizing automatic reloads (if DEBUG is set to True in `config.py`). 
 
-> For quick access, ensure that your M/EEG data is placed in the data folder within the project directory.
+> For quick access, ensure that your MEG/EEG data is placed in the data folder within the project directory.
 
 ## 🗒️ Development Notes
 

@@ -5,6 +5,7 @@ from pathlib import Path
 
 # Local Imports
 from callbacks.utils import path_utils as dpu
+from callbacks.utils import channel_utils as chu
 from layout.config_layout import FLEXDIRECTION
 
 
@@ -29,7 +30,8 @@ def register_update_dropdown():
                 if not dpu.test_valid_path(data_path):
                     return (
                         dash.no_update,
-                        "Selected folder is not a valid M/EEG folder (.ds or .fif or 4D).",
+                        "Selected folder is not a valid MEG/EEG folder "
+                        "(.ds, .fif, .edf, .bdf, .vhdr, .set, or 4D).",
                     )
 
             dropdown = dpu.get_data_path_options(Path(data_path))
@@ -44,6 +46,7 @@ def register_handle_valid_data_path():
         Output("preprocess-display-button", "disabled", allow_duplicate=True),
         Output("frequency-container", "style"),
         Output("data-path-warning", "children", allow_duplicate=True),
+        Output("pending-has-scalp-eeg", "data"),
         Input("data-path-dropdown", "value"),
         prevent_initial_call=True,
     )
@@ -55,21 +58,33 @@ def register_handle_valid_data_path():
                     True,
                     True,
                     {"display": "none"},
-                    "Path must end with '.ds' or '.fif' or contain 3 files for 4D neuroimaging to be a valid raw M/EEG object.",
+                    "Path must end with '.ds', '.fif', '.edf', '.bdf', '.vhdr', '.set', "
+                    "or contain 3 files for 4D neuroimaging to be a valid raw MEG/EEG object.",
+                    False,
                 )
 
             try:
-                dpu.read_raw(data_path, preload=False, verbose=False)
+                raw = dpu.read_raw(data_path, preload=False, verbose=False)
+                has_scalp_eeg = bool(chu.get_scalp_eeg_picks(raw.info))
                 return (
                     False,
                     True,
                     {"display": "none"},
                     "",
+                    has_scalp_eeg,
                 )  # Valid: enable button and clear warning
             except Exception as e:
-                return True, True, {"display": "none"}, f"Invalid M/EEG path: {str(e)}"
+                return (
+                    True,
+                    True,
+                    {"display": "none"},
+                    f"Invalid MEG/EEG path: {str(e)}",
+                    False,
+                )
 
-        return True, True, {"display": "none"}, "Please select a path."
+        # No path selected yet (including on initial page load): stay quiet,
+        # the disabled Load button already makes the next step clear.
+        return True, True, {"display": "none"}, "", False
 
 
 def register_store_data_path_and_clear_data():
@@ -81,6 +96,7 @@ def register_store_data_path_and_clear_data():
         Output("frequency-store", "clear_data"),
         Output("annotation-store", "clear_data"),
         Output("channel-store", "clear_data"),
+        Output("display-channel-store", "clear_data"),
         Output("model-probabilities-store", "clear_data"),
         Output("sensitivity-analysis-store", "clear_data"),
         Output("raw-modality", "clear_data"),
@@ -104,11 +120,13 @@ def register_store_data_path_and_clear_data():
                 dash.no_update,
                 dash.no_update,
                 dash.no_update,
+                dash.no_update,
             )
         return (
             {"display": "flex", **FLEXDIRECTION["row-flex"]},
             False,
             data_path,
+            True,
             True,
             True,
             True,

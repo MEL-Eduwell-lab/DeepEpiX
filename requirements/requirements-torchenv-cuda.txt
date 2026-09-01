@@ -12,6 +12,8 @@ aiohttp==3.13.2
     # via fsspec
 aiosignal==1.4.0
     # via aiohttp
+annotated-types==0.8.0
+    # via pydantic
 async-timeout==5.0.1
     # via aiohttp
 attrs==25.4.0
@@ -229,6 +231,10 @@ pyarrow==20.0.0
     #   dask-expr
 pyarrow-hotfix==0.7
     # via dask
+pydantic==2.10.6
+    # via -r requirements/requirements-torchenv.in
+pydantic-core==2.27.2
+    # via pydantic
 pygments==2.19.2
     # via
     #   pytest

@@ -20,6 +20,7 @@ from flask_caching import Cache
 import config
 from callbacks.utils import path_utils as dpu
 from callbacks.utils import cache_utils as cu
+from callbacks.utils import channel_utils as chu
 
 app = dash.get_app()
 
@@ -35,6 +36,34 @@ cache = Cache(
 # RAW DATA PREPROCESSING (FILTERING, SUBSAMPLING) #################################################################
 
 
+def get_notch_harmonics(notch_freq, sfreq):
+    """
+    Expand a base powerline notch frequency into its harmonics (2x, 3x),
+    e.g. 50 -> [50, 100, 150], keeping only harmonics below the Nyquist
+    frequency (sfreq / 2).
+    """
+    if not notch_freq:
+        return notch_freq
+    nyquist = sfreq / 2
+    harmonics = [h for h in (notch_freq, notch_freq * 2, notch_freq * 3) if h < nyquist]
+    return harmonics or None
+
+
+def get_original_signal_freq_data(freq_data):
+    """
+    Variant of freq_data for computations that must run on the original
+    scalp channel space -- ICA fitting/application and topomaps -- rather
+    than the bipolar montage used for display. Bipolar re-referencing
+    replaces scalp channels with derived anode-cathode pairs, which have no
+    direct correspondence to electrode positions or to an ICA fit on the
+    original channels. "average" reference is left untouched since it
+    doesn't change channel identity.
+    """
+    if freq_data.get("reference") == "double_banana_bipolar":
+        return {**freq_data, "reference": "none"}
+    return freq_data
+
+
 def sort_filter_resample(data_path, freq_data, channels_dict):
 
     raw = dpu.read_raw(data_path, preload=True, verbose=False)
@@ -46,6 +75,14 @@ def sort_filter_resample(data_path, freq_data, channels_dict):
     low_pass_freq = freq_data.get("low_pass_freq")
     high_pass_freq = freq_data.get("high_pass_freq")
     notch_freq = freq_data.get("notch_freq")
+    reference = freq_data.get("reference")
+
+    if reference == "average":
+        scalp_names = [raw.ch_names[i] for i in chu.get_scalp_eeg_picks(raw.info)]
+        if scalp_names:
+            raw.set_eeg_reference(ref_channels=scalp_names)
+    elif reference == "double_banana_bipolar":
+        raw = chu.apply_bipolar_montage(raw)
 
     # Apply filtering and resampling
     raw.filter(l_freq=high_pass_freq, h_freq=low_pass_freq, n_jobs=-1)
@@ -153,7 +190,7 @@ def get_preprocessed_dataframe_dask(
     Parameters
     ----------
     data_path : str
-        Path to the source M/EEG data file.
+        Path to the source MEG/EEG data file.
     freq_data : dict
         Dictionary containing filter parameters: 'resample_freq', 'low_pass_freq', 
         'high_pass_freq', and 'notch_freq'.
@@ -244,7 +281,7 @@ def run_ica_processing(data_path, n_components,
                        ica_method, max_iter, decim, 
                        channel_store, cache_dir, ica_store):
     """
-    Perform Independent Component Analysis (ICA) on M/EEG data with caching.
+    Perform Independent Component Analysis (ICA) on MEG/EEG data with caching.
 
     This function checks if an ICA decomposition with the specified parameters 
     already exists in the cache and session store. If not, it loads the raw data, 
@@ -254,7 +291,7 @@ def run_ica_processing(data_path, n_components,
     Parameters
     ----------
     data_path : str or Path
-        Path to the raw M/EEG data file.
+        Path to the raw MEG/EEG data file.
     n_components : int or float
         Number of principal components to utilize. If float, it represents the 
         fraction of variance to explain.
@@ -298,7 +335,24 @@ def run_ica_processing(data_path, n_components,
         preload=True,
         verbose=False,
         bad_channels=channel_store.get("bad", []),
-    ).pick_types(meg=True)
+    )
+    modality = dpu.get_raw_modality(raw)
+
+    # Restrict EEG picks to channels with a known scalp position (see
+    # chu.get_scalp_eeg_picks): fitting ICA on auxiliary channels (ECG, EMG,
+    # markers...) mislabeled as "eeg" degrades the decomposition, and without
+    # a montage, ica.plot_components() can't draw the component topographies.
+    meg_picks = (
+        mne.pick_types(raw.info, meg=True, eeg=False, stim=False, eog=False, ref_meg=False)
+        if modality in ("meg", "mixed")
+        else []
+    )
+    eeg_picks = chu.get_scalp_eeg_picks(raw.info) if modality in ("eeg", "mixed") else []
+    raw.pick([raw.ch_names[i] for i in list(meg_picks) + list(eeg_picks)])
+
+    if modality in ("eeg", "mixed"):
+        raw.set_montage(mne.channels.make_standard_montage("standard_1020"))
+
     raw.filter(l_freq=1.0, h_freq=None)
 
     ica = mne.preprocessing.ICA(
@@ -380,11 +434,15 @@ def get_ica_components_dask(
         return dd.read_parquet(cache_file) #type: ignore
 
     if raw is None:
-        raw = dpu.read_raw(data_path, preload=True, verbose=False).pick(["meg"])
+        raw = dpu.read_raw(data_path, preload=True, verbose=False)
+        modality = dpu.get_raw_modality(raw)
+        raw.pick(["meg", "eeg"] if modality == "mixed" else [modality])
         raw.filter(l_freq=1.0, h_freq=None)
+    else:
+        modality = dpu.get_raw_modality(raw)
 
     raw = raw.copy().crop(tmin=start_time, tmax=end_time)
-    raw.pick(["meg"])
+    raw.pick(["meg", "eeg"] if modality == "mixed" else [modality])
 
     ica = mne.preprocessing.read_ica(ica_result_path)
     sources = ica.get_sources(raw)
@@ -437,7 +495,9 @@ def get_reconstructed_signal_dask(
     excluded_components : list of int
         Indices of ICA components to be removed (e.g., artifacts).
     raw : mne.io.Raw or None
-        An existing MNE Raw object. If None, data is loaded from `data_path`.
+        An existing MNE Raw object in the original scalp channel space
+        (matching what ICA was fit on -- see run_ica_processing). If None,
+        data is loaded from `data_path`.
     cache_dir : str, optional
         Directory to store the resulting Parquet files.
 
@@ -448,8 +508,9 @@ def get_reconstructed_signal_dask(
 
     Notes
     -----
-    The function currently apply ICA exclusion on MEG channels only and
-    leave others as there original values.
+    ICA exclusion is applied only to the channel type(s) the ICA was fit on
+    (MEG, EEG, or both for mixed recordings); other channels (stim, misc,
+    or the complementary modality) are left at their original values.
     """
     os.makedirs(cache_dir, exist_ok=True)
 
@@ -463,23 +524,35 @@ def get_reconstructed_signal_dask(
     
     raw_chunk = raw.copy().crop(tmin=start_time, tmax=end_time)
 
-    meg_picks = mne.pick_types(raw_chunk.info, meg=True, eeg=False, stim=False, exclude=[])
-    non_meg_picks = mne.pick_types(raw_chunk.info, meg=False, eeg=True, stim=True, misc=True, exclude=[])
+    modality = dpu.get_raw_modality(raw_chunk)
+    ica_meg = modality in ("meg", "mixed")
+    ica_eeg = modality in ("eeg", "mixed")
 
-    raw_meg = raw_chunk.copy().pick(picks=meg_picks)
-    if len(non_meg_picks) > 0:
-        raw_non_meg = raw_chunk.copy().pick(picks=non_meg_picks)
+    ica_picks = mne.pick_types(raw_chunk.info, meg=ica_meg, eeg=ica_eeg, stim=False, exclude=[])
+    other_picks = mne.pick_types(raw_chunk.info, meg=not ica_meg, eeg=not ica_eeg, stim=True, misc=True, exclude=[])
+
+    raw_ica_channels = raw_chunk.copy().pick(picks=ica_picks)
+    if len(other_picks) > 0:
+        raw_other_channels = raw_chunk.copy().pick(picks=other_picks)
     else:
-        raw_non_meg = None
+        raw_other_channels = None
 
     ica = mne.preprocessing.read_ica(ica_result_path)
     ica.exclude = list(excluded_components)
-    ica.apply(raw_meg)
+    ica.apply(raw_ica_channels)
 
-    if raw_non_meg is not None:
-        cleaned_raw = raw_meg.add_channels([raw_non_meg])
+    if raw_other_channels is not None:
+        cleaned_raw = raw_ica_channels.add_channels([raw_other_channels])
     else:
-        cleaned_raw = raw_meg
+        cleaned_raw = raw_ica_channels
+
+    # `raw` (and therefore `cleaned_raw`) is in the original scalp channel
+    # space, since ICA is always fit/applied there (see run_ica_processing).
+    # Re-derive the bipolar montage on the cleaned signal so the display
+    # (which shows bipolar channels when that reference is selected)
+    # reflects the ICA cleaning.
+    if freq_data.get("reference") == "double_banana_bipolar":
+        cleaned_raw = chu.apply_bipolar_montage(cleaned_raw)
 
     cleaned_df = cleaned_raw.to_data_frame(index="time")
     ddf = dd.from_pandas(cleaned_df, npartitions=10) #type: ignore
@@ -493,6 +566,15 @@ def get_reconstructed_signal_dask(
 
 def compute_power_spectrum_decomposition(data_path, freq_data, theme="light"):
     raw = dpu.read_raw(data_path, preload=True, verbose=False)
+    modality = dpu.get_raw_modality(raw)
+    meg_picks = (
+        mne.pick_types(raw.info, meg=True, eeg=False, stim=False, eog=False, ref_meg=False)
+        if modality in ("meg", "mixed")
+        else []
+    )
+    eeg_picks = chu.get_scalp_eeg_picks(raw.info) if modality in ("eeg", "mixed") else []
+
+    picks = [raw.ch_names[i] for i in list(meg_picks) + list(eeg_picks)]
 
     low_pass_freq = freq_data.get("low_pass_freq")
     high_pass_freq = freq_data.get("high_pass_freq")
@@ -502,14 +584,14 @@ def compute_power_spectrum_decomposition(data_path, freq_data, theme="light"):
         return dash.no_update
 
     if notch_freq:
-        raw.notch_filter(freqs=notch_freq)
+        raw.notch_filter(freqs=get_notch_harmonics(notch_freq, raw.info["sfreq"]))
 
     psd_data = raw.compute_psd(
         method="welch",
         fmin=high_pass_freq,
         fmax=low_pass_freq,
         n_fft=2048,
-        picks="meg",
+        picks=picks,
         n_jobs=-1,
     )
     psd, freqs = psd_data.get_data(return_freqs=True)
@@ -564,15 +646,23 @@ def preprocess_same_as_training(model_config, model_name, data_path, channels_di
     with open(model_config, 'r') as file:
         config = json.load(file)
 
+    # model_config.json is keyed by modality then file name: transformer.ckpt
+    # and hbiot.ckpt exist in both models/MEG and models/EEG with different
+    # training filters. model_name is the full path chosen in the dropdown.
+    modality = os.path.basename(os.path.dirname(model_name)).upper()
     model_name = os.path.basename(model_name)
-    model_cfg = config.get(model_name, {})
+    model_cfg = config.get(modality, {}).get(model_name, {})
 
     notch = model_cfg.get("notch")
+    notch_freq = None if notch == "None" else notch
     freq_data = {
         "resample_freq": model_cfg.get("sfreq"),
         "low_pass_freq":  model_cfg.get("lowpass"),
         "high_pass_freq": model_cfg.get("highpass"),
-        "notch_freq":     None if notch == "None" else notch,
+        # Expand to harmonics like the training pipeline does, so that
+        # "same as training" reproduces the notch it applied (a single
+        # fundamental would leave 100 Hz, 150 Hz... untouched).
+        "notch_freq":     get_notch_harmonics(notch_freq, model_cfg.get("sfreq")),
     }
     
     @delayed

@@ -75,6 +75,7 @@ from callbacks.save_callbacks import (
 # --- Predict ---
 from callbacks.predict_callbacks import (
     register_fill_signal_versions_predict,
+    register_fill_model_options,
     register_execute_predict_script,
     register_store_display_prediction,
     register_update_selected_model,
@@ -363,6 +364,7 @@ register_clean_annotation_history()
 
 # --- Predict ---
 register_fill_signal_versions_predict()
+register_fill_model_options()
 register_execute_predict_script()
 register_store_display_prediction()
 register_update_selected_model()

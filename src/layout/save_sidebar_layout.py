@@ -143,7 +143,7 @@ def create_save():
                                 """
                     - If the original format is .ds, only the new markerfile is saved; bad channels cannot be saved. By default, the old marker file is renamed to 'OldMarkerFile_{date}.mrk', and the new one is saved as 'MarkerFile.mrk' in the subject folder to ensure backward compatibility.\n
 
-                    - Use the FIF format to include annotations and bad channels. This is recommended for preserving full metadata. By default, keeps a trace of the old .fif file renamed to {original_name}_{date}.fif.
+                    - Use the FIF format to include annotations and bad channels. This is recommended for preserving full metadata and works for every supported input format (.fif, .edf, .bdf, .vhdr, .set, .ds, 4D). The original file is left untouched; the result is saved next to it as {original_name}_{date}.fif.
 
                     - Use the CSV format to save annotations so they can be easily reused.
                     """,

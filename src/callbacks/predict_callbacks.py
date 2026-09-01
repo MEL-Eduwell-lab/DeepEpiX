@@ -81,6 +81,27 @@ def register_fill_signal_versions_predict():
             })
         return options 
 
+def register_fill_model_options():
+    @callback(
+        Output("model-dropdown", "options"),
+        Output("model-dropdown", "value"),
+        Input("raw-modality", "data"),
+        Input("url", "pathname"),
+        State("model-dropdown", "value"),
+        prevent_initial_call=False,
+    )
+    def _fill_model_options(modality, url, current_value):
+        """Restrict the model list to those adapted to the recording modality.
+
+        Models live in per-modality sub-folders (``models/MEG`` and
+        ``models/EEG``); only the ones matching ``raw-modality`` are proposed.
+        """
+        options = pru.get_model_options(modality)
+        valid_values = {opt["value"] for opt in options}
+        value = current_value if current_value in valid_values else None
+        return options, value
+
+
 def register_execute_predict_script():
     @callback(
         Output("prediction-status", "children"),
@@ -226,7 +247,7 @@ def register_execute_predict_script():
         predictions_csv_path = cache_dir / f"{os.path.basename(model_path)}_{signal_name_with_preprocess}_predictions.csv"
         smoothgrad_path = cache_dir / f"{os.path.basename(model_path)}_{signal_name_with_preprocess}_smoothGrad.pkl"
 
-        # When same_as_training is selected, ICA component info embedded in the signal name is irrelevant because preprocessing 
+        # When same_as_training is selected, ICA component info embedded in the signal name is irrelevant because preprocessing
         # is redone from scratch using the model's config.
         if preprocessing_option == "same_as_training":
             model_basename = os.path.basename(model_path)
@@ -269,19 +290,46 @@ def register_execute_predict_script():
                 if signal_version and signal_version != "__raw__" and signal_version in ica_results
                 else None
             )
+            # Always produce the prediction signal in the referential channel
+            # space (get_original_signal_freq_data drops a bipolar display
+            # reference); the model's own montage_type, kept from training,
+            # drives any derivation downstream. Only the session filtering,
+            # notch and removed ICA components are carried over.
+            predict_freq_data = pu.get_original_signal_freq_data(freq_data)
 
             signal_cache_path = os.path.join(
-                cache_dir, 
-                f"signal_{hashlib.md5(f'{data_path}_{json.dumps(freq_data, sort_keys=True)}_{sorted(excluded_ica) if excluded_ica else []}_{preprocessing_option}'.encode()).hexdigest()}.parquet"
+                cache_dir,
+                f"signal_{hashlib.md5(f'{data_path}_{json.dumps(predict_freq_data, sort_keys=True)}_{sorted(excluded_ica) if excluded_ica else []}_{preprocessing_option}'.encode()).hexdigest()}.parquet"
             )
-            mne_info_path = pu.get_cache_filename(data_path, freq_data).replace(".parquet", "_mne_meta.json")
+            mne_info_path = signal_cache_path.replace(".parquet", "_mne_meta.json")
+
+            # prep_raw is the referential signal ICA was fit on; build it once if
+            # either the ICA segments or the sidecar still need it.
+            prep_raw = None
+            if excluded_ica or not os.path.exists(mne_info_path):
+                prep_raw = pu.sort_filter_resample(data_path, predict_freq_data, channels_dict)
+
+            if excluded_ica:
+                # extract_preprocess_signal only *reads* ICA-cleaned segments, it
+                # never applies ICA. Regenerate any missing segment here (in the
+                # referential scalp space) so we don't silently fall back to the
+                # non-ICA signal. get_reconstructed_signal_dask is a no-op when
+                # the segment is already cached.
+                for start_time, end_time in chunk_limits:
+                    pu.get_reconstructed_signal_dask(
+                        data_path, predict_freq_data, start_time, end_time,
+                        signal_version, excluded_ica, prep_raw,
+                    )
+
+            if not os.path.exists(mne_info_path):
+                pu.save_mne_sidecar(signal_cache_path, prep_raw)
 
             if not os.path.exists(signal_cache_path):
                 signal = pru.extract_preprocess_signal(
-                    data_path, freq_data, channels_dict, chunk_limits, excluded_ica
+                    data_path, predict_freq_data, channels_dict, chunk_limits, excluded_ica
                 )
                 print(f"Variance : {signal.var().mean()} | Shape : {signal.shape}")
-                signal.to_parquet(signal_cache_path)     
+                signal.to_parquet(signal_cache_path)
             else:
                 print(f"✅ Signal already in cache — skip extraction ({signal_cache_path})")
 
@@ -294,7 +342,7 @@ def register_execute_predict_script():
             model_config = f"{STATIC_DIR}/model_config.json"
 
             print(f"Model config : {model_config}")
-            mne_info_path, df = pu.preprocess_same_as_training(model_config, model_path, data_path, channels_dict, signal_cache_path)
+            mne_info_path, _ = pu.preprocess_same_as_training(model_config, model_path, data_path, channels_dict, signal_cache_path)
         
         # Otherwise, execute model
         if "TensorFlow" in venv:
@@ -318,7 +366,6 @@ def register_execute_predict_script():
                 str(signal_cache_path),
                 str(mne_info_path),
                 str(signal_name_with_preprocess),
-                str(preprocessing_option),
             ]
 
             try:
@@ -403,9 +450,18 @@ def update_prediction_table(style, threshold, prediction_csv_path):
             dark=False,
         )
 
+        # UIEDNET "probas" are segmentation-peak prominences, not calibrated
+        # probabilities, so the probability histogram is not meaningful.
+        if "uiednet" in os.path.basename(prediction_csv_path[0]).lower():
+            distribution = html.P(
+                "Probability distribution is not available for UIEDNET predictions."
+            )
+        else:
+            distribution = au.build_prediction_distribution_statistics(df, threshold)
+
         return (
             au.build_table_prediction_statistics(df_filtered, len(df)),
-            au.build_prediction_distribution_statistics(df, threshold),
+            distribution,
             table,
         )
     except Exception as e:
@@ -501,5 +557,20 @@ def register_smoothgrad_threshold():
     )
     def toggle_smoothgrad_threshold(sensitivity_analysis):
         if sensitivity_analysis:
+            return {"marginBottom": "20px", "display": "block"}
+        return {"marginBottom": "20px", "display": "none"}
+
+    @callback(
+        Output("sensitivity-analysis-div", "style"),
+        Input("model-dropdown", "value"),
+    )
+    def toggle_sensitivity_analysis(model_path):
+        # SmoothGrad is only available for the MEG CNN model.
+        is_meg_cnn = (
+            bool(model_path)
+            and os.path.basename(model_path) == "model_CNN.keras"
+            and os.path.basename(os.path.dirname(model_path)) == "MEG"
+        )
+        if is_meg_cnn:
             return {"marginBottom": "20px", "display": "block"}
         return {"marginBottom": "20px", "display": "none"}

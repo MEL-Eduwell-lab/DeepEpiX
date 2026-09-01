@@ -2,9 +2,8 @@ import torch
 import torch.nn as nn
 from x_transformers import Encoder
 import logging
-from typing import Optional, Tuple, Dict, List
 
-def log_tensor_statistics(tensor: torch.Tensor, name: str, logger_obj: Optional[logging.Logger]=None) -> None:
+def log_tensor_statistics(tensor: torch.Tensor, name: str, logger_obj: logging.Logger | None =None) -> None:
     """Log detailed statistics about a tensor for debugging NaN/inf issues.
 
     Args:
@@ -21,6 +20,79 @@ def log_tensor_statistics(tensor: torch.Tensor, name: str, logger_obj: Optional[
         logger_obj.error(f'ALERT {name}: NaN={n_nan}/{n_total} ({100 * n_nan / n_total:.2f}%), Inf={n_inf}/{n_total} ({100 * n_inf / n_total:.2f}%)')
     if n_nan == 0 and n_inf == 0:
         logger_obj.debug(f'OK {name}: shape={tuple(tensor.shape)}, mean={tensor.float().mean():.4f}, std={tensor.float().std():.4f}, min={tensor.float().min():.4f}, max={tensor.float().max():.4f}, NaN=0, Inf=0')
+
+@staticmethod
+def _compute_n_patches(n_samples: int, patch_size: int, overlap: float) -> int:
+    stride = max(1, int(patch_size * (1 - overlap)))
+    return (n_samples - patch_size) // stride + 1
+
+def stft(sample: torch.Tensor, n_fft, hop_length) -> torch.Tensor:
+    """Compute Short-Time Fourier Transform for spectral patch embedding.
+
+    Transforms raw temporal EEG data into frequency-domain representation for
+    spectral processing mode. Uses rectangular window for simple frequency analysis.
+
+    Args:
+        sample (torch.Tensor): Input temporal data.
+            Shape: (batch_size, 1, time_samples)
+        n_fft (int): Number of FFT points, determines frequency resolution.
+        hop_length (int): Number of samples between successive frames.
+
+    Returns:
+        torch.Tensor: Magnitude spectrogram.
+            Shape: (batch_size, freq_bins, time_frames)
+    """
+    spectral = torch.stft(
+        input=sample.squeeze(1),  # from shape (batch_size, 1, ts) to (batch_size, ts)
+        n_fft=n_fft,
+        hop_length=hop_length,
+        window=torch.ones(n_fft, device=sample.device),  # this is a rectangular window
+        center=False,
+        onesided=True,
+        return_complex=True,
+    )
+    return torch.abs(spectral)
+
+
+class PatchFrequencyEmbedding(nn.Module):
+    """Embedding module for spectral domain EEG data processing.
+
+    Transforms STFT frequency representations into fixed-size embeddings for
+    transformer processing. Used in spectral mode of BIOT encoder.
+
+    Attributes:
+        projection (nn.Linear): Projects frequency vectors to embedding space.
+            Input size: n_freq (number of frequency bins)
+            Output size: emb_size (embedding dimension)
+    """
+
+    def __init__(self, emb_size: int=256, n_freq: int=101):
+        """Initialize the patch frequency embedding.
+
+        Args:
+            emb_size: Size of the embedding vector.
+            n_freq: Number of frequency components.
+        """
+        super().__init__()
+        self.projection = nn.Linear(n_freq, emb_size)
+        self.logger = logging.getLogger(__name__ + '.PatchFrequencyEmbedding')
+        self.logger.debug(f'Initialized with emb_size={emb_size}, n_freq={n_freq}')
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass with frequency-to-embedding projection.
+
+        Args:
+            x (torch.Tensor): STFT magnitude spectrogram.
+                Shape: (batch_size, freq_bins, time_frames)
+
+        Returns:
+            torch.Tensor: Temporal sequence of frequency embeddings.
+                Shape: (batch_size, time_frames, emb_size)
+        """
+        # Permute to (batch, time, freq) for linear projection along freq dimension
+        x = x.permute(0, 2, 1)
+        x = self.projection(x)
+        return x
 
 
 class PatchTimeEmbedding(nn.Module):
@@ -154,7 +226,7 @@ class XTransformerEncoder(nn.Module):
     - Reduced memory usage with Flash Attention
     """
 
-    def __init__(self, dim: int, depth: int, heads: int=8, max_seq_len: int=1024, dim_head: Optional[int]=None, attn_dropout: float=0.0, ff_dropout: float=0.0, use_flash_attn: bool=True, use_rmsnorm: bool=True, **kwargs):
+    def __init__(self, dim: int, depth: int, heads: int=8, max_seq_len: int=1024, dim_head: int | None =None, attn_dropout: float=0.0, ff_dropout: float=0.0, use_flash_attn: bool=True, use_rmsnorm: bool=True, **kwargs):
         """
         Initialize the X-Transformers Encoder wrapper with BIOT-compatible settings.
         
@@ -185,7 +257,7 @@ class XTransformerEncoder(nn.Module):
         self.encoder = Encoder(dim=dim, depth=depth, heads=heads, attn_dropout=attn_dropout, ff_dropout=ff_dropout, attn_flash=use_flash_attn, use_rmsnorm=use_rmsnorm, rotary_pos_emb=False, rel_pos_bias=False, **xtransformer_kwargs)
         self.config = {'dim': dim, 'depth': depth, 'heads': heads, 'max_seq_len': max_seq_len, 'use_flash_attn': use_flash_attn, 'use_rmsnorm': use_rmsnorm, 'attn_dropout': attn_dropout, 'ff_dropout': ff_dropout}
 
-    def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor]=None, **kwargs) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, mask: torch.Tensor | None =None, **kwargs) -> torch.Tensor:
         """
         Forward pass through the x-transformers encoder with BIOT compatibility.
         
@@ -326,7 +398,7 @@ class BIOTEncoder(nn.Module):
         selected_proj (nn.Linear): Projects selected tokens to final embedding space
     """
 
-    def __init__(self, emb_size: int=256, heads: int=8, depth: int=4, n_selected_tokens: int=3, selection_temperature: float=1.0, n_channels: int=275, n_samples_per_window: int=40, token_size: int=200, overlap: float=0.0, mode: str='spec', sfreq: float=200.0, linear_attention: bool=True, attn_dropout: float=0.2, ff_dropout: float=0.2, use_cls_token: bool=True, use_mean_pool: int=0, use_max_pool: bool=False, use_min_pool: bool=False, **kwargs):
+    def __init__(self, emb_size: int=256, heads: int=8, depth: int=4, n_selected_tokens: int=3, selection_temperature: float=1.0, n_channels: int=275, n_samples_per_window: int=40, token_size: int=200, overlap: float=0.0, mode: str='spec', sfreq: float=200.0, linear_attention: bool=True, attn_dropout: float=0.2, ff_dropout: float=0.2, use_cls_token: bool=True, use_mean_pool: int=0, use_max_pool: bool=False, use_min_pool: bool=False, n_patches_per_channel: int | None=None, **kwargs):
         """Initialize the modified BIOT encoder.
 
         Args:
@@ -359,7 +431,9 @@ class BIOTEncoder(nn.Module):
             raise ValueError(f"mode must be one of {valid_modes}, got '{mode}'")
         self.logger.info('Modified BIOT encoder initialized')
         self.logger.info(f'Processing mode: {mode}')
-        if mode == 'raw':
+        if mode == 'spec':
+            self.patch_embedding = PatchFrequencyEmbedding(emb_size=emb_size, n_freq=self.n_fft // 2 + 1)
+        elif mode == 'raw':
             self.patch_embedding = PatchTimeEmbedding(emb_size=emb_size, patch_size=token_size, overlap=overlap)
         else:
             self.logger.warning(f"Invalid mode '{mode}', defaulting to 'raw'")
@@ -394,10 +468,14 @@ class BIOTEncoder(nn.Module):
         self.n_tokens_per_window = n_tokens_per_window
         self.logger.info(f'Token configuration: CLS={use_cls_token}, Mean={use_mean_pool}, Max={use_max_pool}, Selected={n_selected_tokens}')
         self.logger.info(f'Total tokens per window: {n_tokens_per_window}')
-        n_tokens = int((n_samples_per_window - token_size) / (token_size * (1 - overlap)) + 1) * n_channels
+        # A patch count passed explicitly (e.g. read from a checkpoint trained with
+        # a different formula) takes precedence over the computed value.
+        if n_patches_per_channel is None:
+            n_patches_per_channel = _compute_n_patches(n_samples_per_window, token_size, overlap)
+        self.n_patches_per_channel = n_patches_per_channel
+        n_tokens = n_patches_per_channel * n_channels
         self.logger.info(f'Max sequence length for transformer: {n_tokens + 1}')
         self.transformer = FullAttentionTransformer(dim=emb_size, heads=heads, depth=depth, max_seq_len=n_tokens + 1, attn_dropout=attn_dropout, ff_dropout=ff_dropout, use_flash_attn=True, use_rmsnorm=True)
-        self.n_patches_per_channel = int((n_samples_per_window - token_size) / (token_size * (1 - overlap)) + 1)
         self.logger.info(f'Patches per channel: {self.n_patches_per_channel}')
         self.positional_embedding = nn.Parameter(torch.randn(self.n_patches_per_channel, emb_size))
         self.channel_embedding = nn.Parameter(torch.randn(n_channels, emb_size))
@@ -405,7 +483,7 @@ class BIOTEncoder(nn.Module):
         self.missing_channel_embedding = nn.Parameter(torch.randn(1, emb_size))
         self.training = True
 
-    def forward(self, x: torch.Tensor, channel_mask: Optional[torch.Tensor], unk_augment: float=0.0, unknown_mask: Optional[torch.Tensor]=None) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, channel_mask: torch.Tensor | None, unk_augment: float=0.0, unknown_mask: torch.Tensor | None =None) -> torch.Tensor:
         """Forward pass with detailed multi-stage processing and shape tracking.
 
         DATA FLOW:
@@ -460,6 +538,8 @@ class BIOTEncoder(nn.Module):
         emb_seq = []
         for i in range(n_channels):
             channel_data = x[:, i:i + 1, :]
+            if self.mode == 'spec':
+                channel_data = stft(channel_data, n_fft=self.n_fft, hop_length=self.hop_length)
             channel_tokens = self.patch_embedding(channel_data)
             if i == 0:
                 log_tensor_statistics(channel_tokens, f'BIOTEncoder channel {i} after patch_embedding', self.logger)
@@ -578,7 +658,7 @@ class ClassificationHead(nn.Sequential):
         clshead (nn.Sequential): Sequential module with the classification layers.
     """
 
-    def __init__(self, emb_size: int, n_classes: int):
+    def __init__(self, emb_size: int, n_classes: int, dropout: float | None = None, **kwargs):
         """Initialize the classification head.
 
         Args:
@@ -586,7 +666,15 @@ class ClassificationHead(nn.Sequential):
             n_classes: Number of output classes.
         """
         super().__init__()
-        self.clshead = nn.Sequential(nn.ELU(), nn.Linear(emb_size, emb_size // 2), nn.ELU(), nn.Linear(emb_size // 2, n_classes))
+        self.dropout = dropout
+        self.clshead = nn.Sequential(
+            nn.ELU(),
+            nn.Dropout(dropout if dropout is not None else 0.0),
+            nn.Linear(emb_size, emb_size // 2),
+            nn.ELU(),
+            nn.Dropout(dropout if dropout is not None else 0.0),
+            nn.Linear(emb_size // 2, n_classes),
+        )
         self.logger = logging.getLogger(__name__ + '.ClassificationHead')
         self.logger.debug(f'Initialized with emb_size={emb_size}, n_classes={n_classes}')
 
@@ -611,9 +699,9 @@ class BIOTClassifier(nn.Module):
         classifier (ClassificationHead): Classification head.
     """
 
-    def __init__(self, emb_size: int=256, heads: int=8, depth: int=4, n_classes: int=1, mode: str='spec', overlap: float=0.0, log_dir: Optional[str]=None, n_selected_tokens: int=3, use_cls_token: bool=True, use_mean_pool: bool=True, use_max_pool: bool=True, **kwargs):
+    def __init__(self, emb_size:int=256, heads: int=8, depth: int=4, n_classes: int=1, mode: str='spec', overlap: float=0.0, log_dir: str | None =None, n_selected_tokens: int=3, use_cls_token: bool=True, use_mean_pool: bool=True, use_max_pool: bool=True, classifier_dropout: float | None = None, input_shape: list | tuple | None = None, **kwargs):
         """Initialize the BIOT classifier.
-        
+
         Args:
             emb_size: Size of the embedding vectors.
             heads: Number of attention heads.
@@ -626,16 +714,22 @@ class BIOTClassifier(nn.Module):
             use_cls_token: Whether to include CLS token in output.
             use_mean_pool: Whether to include mean pooling token in output.
             use_max_pool: Whether to include max pooling token in output.
+            classifier_dropout: Dropout probability for the classification head. None disables dropout.
+            input_shape: (n_windows, n_channels, n_samples_per_window). When given, n_channels and
+                n_samples_per_window are derived from it, overriding any BIOTEncoder defaults.
             **kwargs: Additional parameters passed to BIOTEncoder.
         """
         super().__init__()
         self.logger = logging.getLogger(__name__ + '.BIOTClassifier')
         self.logger.info(f'Initializing BIOT classifier with emb_size={emb_size}, heads={heads}, depth={depth}, n_classes={n_classes}, mode={mode}')
+        if input_shape is not None:
+            kwargs['n_channels'] = input_shape[1]
+            kwargs['n_samples_per_window'] = input_shape[-1]
         self.biot = BIOTEncoder(emb_size=emb_size, heads=heads, depth=depth, mode=mode, overlap=overlap, n_selected_tokens=n_selected_tokens, use_cls_token=use_cls_token, use_mean_pool=use_mean_pool, use_max_pool=use_max_pool, **kwargs)
         self.n_classes = n_classes
-        self.classifier = ClassificationHead(emb_size=emb_size, n_classes=n_classes)
+        self.classifier = ClassificationHead(emb_size=emb_size, n_classes=n_classes, dropout=classifier_dropout)
 
-    def forward(self, x: torch.Tensor, channel_mask: Optional[torch.Tensor]=None, *args,**kwargs) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, channel_mask: torch.Tensor | None =None, *args,**kwargs) -> torch.Tensor:
         """Forward pass of the BIOT classifier.
 
         Args:
@@ -717,14 +811,15 @@ class BIOTHierarchicalClassifier(nn.Module):
             overlap: float = 0.5,
             mode: str = "raw",
             linear_attention: bool = True,
-            input_shape: Optional[Tuple[int, int, int]] = None,
-            transformer: Optional[dict] = None,
-            token_selection: Optional[dict] = None,
-            classifier: Optional[dict] = None,
-            log_dir: Optional[str] = None,
+            input_shape: tuple[int, int, int] | None = None,
+            transformer: dict | None = None,
+            token_selection: dict | None = None,
+            classifier: dict | None = None,
+            log_dir: str | None = None,
             n_classes: int = 1,
-            reference_coordinates: Dict[str, List[float]] = {},
+            reference_coordinates: dict[str, list[float]] = {},
             max_virtual_batch_size: int = 640,
+            n_patches_per_channel: int | None = None,
             **kwargs
     ):
         """Initialize the BIOT hierarchical encoder.
@@ -809,6 +904,7 @@ class BIOTHierarchicalClassifier(nn.Module):
             mode=mode,                                    # Processing mode: "raw", "spec", or "features"
             linear_attention=linear_attention,            # Use linear attention or full attention for window encoder
             reference_coordinates=reference_coordinates,  # Pass spatial coordinates to window encoder
+            n_patches_per_channel=n_patches_per_channel,  # Override computed patch count (e.g. from checkpoint)
         )
 
         # Learnable embeddings for each window position
@@ -845,7 +941,7 @@ class BIOTHierarchicalClassifier(nn.Module):
             # Single token classification with simple MLP
             self.classifier = ClassificationHead(emb_size=emb_size, n_classes=n_classes)
 
-    def forward(self, x: torch.Tensor, channel_mask: Optional[torch.Tensor] = None, window_mask: Optional[torch.Tensor] = None, unk_augment: float = 0.0, unknown_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, channel_mask: torch.Tensor | None = None, window_mask: torch.Tensor | None = None, unk_augment: float = 0.0, unknown_mask: torch.Tensor | None = None) -> torch.Tensor:
         """Forward pass of the BIOT hierarchical encoder with detailed shape tracking.
 
         DETAILED DATA FLOW:
@@ -933,9 +1029,10 @@ class BIOTHierarchicalClassifier(nn.Module):
                 # Extract chunk
                 chunk_x = x_reshaped[chunk_start:chunk_end]
                 chunk_mask = channel_mask_reshaped[chunk_start:chunk_end] if channel_mask_reshaped is not None else None
+                chunk_unknown_mask = unknown_mask_reshaped[chunk_start:chunk_end] if unknown_mask_reshaped is not None else None
 
                 # Process chunk through encoder
-                chunk_tokens = self.window_encoder(chunk_x, chunk_mask, unk_augment=unk_augment, unknown_mask=unknown_mask)
+                chunk_tokens = self.window_encoder(chunk_x, chunk_mask, unk_augment=unk_augment, unknown_mask=chunk_unknown_mask)
                 chunks.append(chunk_tokens)
 
             # Concatenate all chunks
@@ -1087,7 +1184,7 @@ class AttentionClassificationHead(nn.Module):
             nn.Linear(emb_size // 2, n_classes)  # 128 → n_classes: Final classification layer
         )
 
-    def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, mask: torch.Tensor | None = None) -> torch.Tensor:
             """Forward pass with attention-based token aggregation per window.
 
             DETAILED PROCESSING STEPS:

@@ -1,4 +1,4 @@
-FROM python:3.9
+FROM python:3.10
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
@@ -52,4 +52,4 @@ WORKDIR /DeepEpiX/src
 EXPOSE 8050
 
 # Use exec form for better signal handling
-CMD exec /DeepEpiX/.dashenv/bin/gunicorn -w $(python3 -c "import multiprocessing; print(multiprocessing.cpu_count() * 2 + 1)") -b 0.0.0.0:8050 --timeout 600 run:server
+CMD ["sh", "-c", "exec /DeepEpiX/.dashenv/bin/gunicorn -w $(python3 -c 'import multiprocessing; print(multiprocessing.cpu_count() * 2 + 1)') -b 0.0.0.0:8050 --timeout 600 run:server"]

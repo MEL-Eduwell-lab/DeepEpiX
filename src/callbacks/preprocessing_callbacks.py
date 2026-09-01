@@ -34,12 +34,34 @@ def register_handle_frequency_parameters():
         return dash.no_update
 
 
+def register_toggle_eeg_reference():
+    @callback(
+        Output("eeg-reference", "disabled"),
+        Output("eeg-reference", "value"),
+        Input("pending-has-scalp-eeg", "data"),
+        prevent_initial_call=True,
+    )
+    def toggle_eeg_reference(has_scalp_eeg):
+        """
+        Enable EEG re-referencing only when the recording has real 10-20
+        scalp electrodes (see chu.get_scalp_eeg_picks) -- not just any
+        "eeg"-typed channel, since a MEG recording with a few auxiliary
+        channels (ECG, EOG...) mislabeled as "eeg" shouldn't count.
+        """
+        if has_scalp_eeg:
+            return False, dash.no_update
+        # MEG recording: re-referencing is irrelevant ("average" is a no-op with
+        # no scalp electrodes), so just disable the control on a valid value.
+        return True, "average"
+
+
 def register_preprocess_meg_data():
     @callback(
         Output("preprocess-status", "children", allow_duplicate=True),
         Output("frequency-store", "data"),
         Output("annotation-store", "data"),
         Output("channel-store", "data", allow_duplicate=True),
+        Output("display-channel-store", "data"),
         Output("raw-modality", "data"),
         Output("chunk-limits-store", "data"),
         Output("url", "pathname"),
@@ -53,6 +75,7 @@ def register_preprocess_meg_data():
         State("high-pass-freq", "value"),
         State("low-pass-freq", "value"),
         State("notch-freq", "value"),
+        State("eeg-reference", "value"),
         State("heartbeat-channel", "value"),
         State("bad-channels", "value"),
         running=[(Output("compute-display-psd-button", "disabled"), True, False)],
@@ -65,11 +88,12 @@ def register_preprocess_meg_data():
         high_pass_freq,
         low_pass_freq,
         notch_freq,
+        eeg_reference,
         heartbeat_ch_name,
         bad_channels,
     ):
         """
-        Execute M/EEG preprocessing pipeline, save mne info & update application state.
+        Execute MEG/EEG preprocessing pipeline, save mne info & update application state.
         Preprocessing a novel example resets all history and ICA related components.
 
         Parameters
@@ -77,7 +101,7 @@ def register_preprocess_meg_data():
         n_clicks : int
             Number of times the preprocess button has been clicked.
         data_path : str
-            Path to the raw M/EEG file or directory.
+            Path to the raw MEG/EEG file or directory.
         resample_freq : float
             Target sampling rate in Hz.
         high_pass_freq : float
@@ -86,6 +110,8 @@ def register_preprocess_meg_data():
             Upper bound of the bandpass filter in Hz.
         notch_freq : float
             Frequency to be removed by the notch filter (e.g., 50 or 60 Hz).
+        eeg_reference : {"average", "double_banana_bipolar"}
+            EEG re-referencing scheme to apply. Ignored for MEG recordings.
         heartbeat_ch_name : str
             Name of the ECG/heartbeat channel for artifact detection.
         bad_channels : list of str
@@ -97,7 +123,7 @@ def register_preprocess_meg_data():
             Updated states for Dash components including status messages, 
             frequency settings, annotations, and navigation path.
         """
-        NO_UPDATE = (dash.no_update,) * 11
+        NO_UPDATE = (dash.no_update,) * 12
 
         if n_clicks > 0:
             try:
@@ -130,7 +156,8 @@ def register_preprocess_meg_data():
                     "resample_freq": resample_freq,
                     "low_pass_freq": low_pass_freq,
                     "high_pass_freq": high_pass_freq,
-                    "notch_freq": notch_freq,
+                    "notch_freq": pu.get_notch_harmonics(notch_freq, raw.info["sfreq"]),
+                    "reference": eeg_reference,
                 }
 
                 prep_raw = pu.sort_filter_resample(data_path, freq_data, channels_dict)
@@ -148,18 +175,23 @@ def register_preprocess_meg_data():
                 cache_file = pu.get_cache_filename(data_path, freq_data)
                 pu.save_mne_sidecar(cache_file, prep_raw)
 
+                display_channels_dict = chu.get_post_reference_channel_groups(
+                    prep_raw, modality, eeg_reference, bad_channels=all_bad_channels
+                )
+
                 return (
                     "Preprocessed and saved data",
                     freq_data,
                     annotations_dict,
                     channels_dict,
+                    display_channels_dict,
                     modality,
                     chunk_limits,
                     "/viz/raw-signal",
                     [],
-                    [],                              
+                    [],
                     None,
-                    {}                           
+                    {}
                 )
 
             except Exception as e:

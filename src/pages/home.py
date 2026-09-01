@@ -19,6 +19,7 @@ from callbacks.data_path_callbacks import (
 )
 from callbacks.preprocessing_callbacks import (
     register_handle_frequency_parameters,
+    register_toggle_eeg_reference,
     register_preprocess_meg_data,
 )
 from callbacks.psd_callbacks import register_display_psd
@@ -142,9 +143,9 @@ layout = html.Div(
                             className="bi bi-person-plus-fill",
                             style={"marginRight": "10px", "fontSize": "1.2em"},
                         ),
-                        "Select M/EEG Data",
+                        "Select MEG/EEG Data",
                         dbc.Tooltip(
-                            "This dropdown lists all M/EEG data files located in the /data folder. "
+                            "This dropdown lists all MEG/EEG data files located in the /data folder. "
                             "To use a different folder, change the path in the /src/config.py file.",
                             target="data-path-dropdown",
                             autohide=True,
@@ -296,6 +297,36 @@ layout = html.Div(
                                     persistence=True,
                                     persistence_type="session",
                                     style=INPUT_STYLES["number-in-box"],
+                                ),
+                            ],
+                        ),
+                        html.Div(
+                            [
+                                html.Label("EEG Reference: "),
+                                dcc.Dropdown(
+                                    id="eeg-reference",
+                                    options=[
+                                        {"label": "Average", "value": "average"},
+                                        {
+                                            "label": "Bipolar (double banana)",
+                                            "value": "double_banana_bipolar",
+                                        },
+                                    ],
+                                    value="average",
+                                    clearable=False,
+                                    disabled=True,
+                                    style={"width": "200px"},
+                                ),
+                                dbc.Tooltip(
+                                    "Re-reference EEG channels before filtering. "
+                                    "Bipolar applies the standard temporal "
+                                    "'double banana' montage; pairs whose electrodes "
+                                    "are missing from the recording are skipped. "
+                                    "Disabled for MEG recordings, which don't need "
+                                    "re-referencing.",
+                                    target="eeg-reference",
+                                    placement="right",
+                                    class_name="custom-tooltip",
                                 ),
                             ],
                             style={"marginBottom": "20px"},
@@ -459,6 +490,8 @@ register_store_data_path_and_clear_data()
 register_populate_tab_contents()
 
 register_handle_frequency_parameters()
+
+register_toggle_eeg_reference()
 
 register_display_psd()
 

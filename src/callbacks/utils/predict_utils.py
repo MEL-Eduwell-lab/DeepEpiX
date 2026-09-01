@@ -7,14 +7,40 @@ import pandas as pd
 from callbacks.utils import preprocessing_utils as pu
 
 
-def get_model_options():
-    model_dir = Path(MODELS_DIR)
+# Models are stored in per-modality sub-folders of MODELS_DIR.
+MODALITY_MODEL_DIRS = {
+    "meg": ["MEG"],
+    "eeg": ["EEG"],
+    "mixed": ["MEG", "EEG"],
+}
 
-    items = list(model_dir.iterdir())
-    if items:
-        return [{"label": d.name, "value": str(d.resolve())} for d in items]
-    else:
-        return [{"label": "No data available", "value": ""}]
+
+def get_model_options(modality=None):
+    """Build the dropdown options for the models matching a given modality.
+
+    Parameters
+    ----------
+    modality : str or None
+        Recording modality ('meg', 'eeg', 'mixed'). When unknown or None,
+        every available model is listed.
+    """
+    model_dir = Path(MODELS_DIR)
+    subdirs = MODALITY_MODEL_DIRS.get((modality or "").lower(), ["MEG", "EEG"])
+
+    options = []
+    for sub in subdirs:
+        sub_path = model_dir / sub
+        if not sub_path.is_dir():
+            continue
+        for f in sorted(sub_path.iterdir()):
+            if f.is_file():
+                options.append(
+                    {"label": f"{sub} · {f.name}", "value": str(f.resolve())}
+                )
+
+    if not options:
+        return [{"label": "No model available", "value": ""}]
+    return options
 
 def extract_preprocess_signal(
     data_path,
@@ -34,7 +60,7 @@ def extract_preprocess_signal(
     Parameters
     ----------
     data_path : str
-        Path to the source M/EEG file.
+        Path to the source MEG/EEG file.
     freq_data : dict
         Filtering and sampling parameters. Should contain keys like 
         'resample_freq' and 'low_pass_freq'.
@@ -104,7 +130,7 @@ def _find_cached_segments(
     Parameters
     ----------
     data_path : str
-        Path to the source M/EEG file.
+        Path to the source MEG/EEG file.
     freq_data : dict
         Filtering and sampling parameters used for generating the cache filename.
     excluded_ica_components : list of int or None

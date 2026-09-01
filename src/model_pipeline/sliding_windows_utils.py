@@ -32,7 +32,7 @@ def save_data_matrices(
       channels at regular intervals (fallback path).
 
     The resulting data array of shape ``(n_channels, n_times)`` is saved
-    under the key ``"m/eeg"`` as a pickle file named ``data_raw``.
+    under the key ``"MEG/EEG"`` as a pickle file named ``data_raw``.
 
     Parameters
     ----------
@@ -61,7 +61,7 @@ def save_data_matrices(
     -------
     None
         Data is saved to disk as a pickle file. The saved object is a dict
-        of the form {"m/eeg": [ndarray]}, where the array has shape
+        of the form {"MEG/EEG": [ndarray]}, where the array has shape
         (n_channels, n_times) with n_channels == len(good_channels).
 
     Raises
@@ -88,7 +88,7 @@ def save_data_matrices(
     if channel_type == "mag":
         if can_interpolate:
             raw = interpolate_missing_channels(raw, good_channels)
-            data = {"m/eeg": [raw.get_data()]}
+            data = {"MEG/EEG": [raw.get_data()]}
 
         else:
             channels_order = [
@@ -99,12 +99,12 @@ def save_data_matrices(
             ]
             raw.reorder_channels(channels_order)
             meg_data = fill_missing_channels(raw, len(good_channels))
-            data = {"m/eeg": [meg_data]}
+            data = {"MEG/EEG": [meg_data]}
 
     elif channel_type == "eeg":
         if can_interpolate:
             raw = interpolate_missing_channels(raw, good_channels)
-            data = {"m/eeg": [raw.get_data()]}
+            data = {"MEG/EEG": [raw.get_data()]}
         else:
             channels_order = [
                 ch
@@ -114,7 +114,7 @@ def save_data_matrices(
             ]
             raw.reorder_channels(channels_order)
             meg_data = fill_missing_channels(raw, len(good_channels))
-            data = {"m/eeg": [meg_data]}
+            data = {"MEG/EEG": [meg_data]}
 
     save_obj(data, "data_raw", output_dir)
 
@@ -164,7 +164,7 @@ def create_windows(
     window_centers_all = []
     block_indices_all = []
 
-    for block_idx, block_data in enumerate(data["m/eeg"]):
+    for block_idx, block_data in enumerate(data["MEG/EEG"]):
         window_centers = np.arange(window_size / 2, block_data.shape[1], window_spacing)
 
         block_windows = []
