@@ -28,6 +28,11 @@ Example of windows path to point to your data directory:
 docker run -p 8050:8050 -v //c/Users/pauli/Documents/MEGBase/data/exampleData:/DeepEpiX/data deepepix-app
 ```
 
+To make GPUs available to run the deep learning models, use:
+```bash
+docker run -p 8050:8050 --gpus all -v //c/Users/pauli/Documents/MEGBase/data/exampleData:/DeepEpiX/data deepepix-app
+```
+
 Then, open the app in your web browser at:
 [http://localhost:8050/](http://localhost:8050/)
 
